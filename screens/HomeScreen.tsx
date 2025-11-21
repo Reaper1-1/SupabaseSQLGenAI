@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ScreenScrollView } from "@/components/ScreenScrollView";
@@ -8,6 +8,7 @@ import { ProgressRing } from "@/components/ProgressRing";
 import Spacer from "@/components/Spacer";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
+import api from "@/lib/api";
 
 export default function HomeScreen() {
   const { theme } = useTheme();
@@ -17,13 +18,46 @@ export default function HomeScreen() {
     journal: false,
     challenge: false,
   });
+  const [prayerMinutes, setPrayerMinutes] = useState(0);
+  const [versesRead, setVersesRead] = useState(0);
+  const [stats, setStats] = useState({ currentStreak: 0, totalDays: 0 });
 
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  const toggleItem = (key: keyof typeof completedItems) => {
-    setCompletedItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Load daily workflow on mount
+  useEffect(() => {
+    loadDailyData();
+  }, []);
+
+  const loadDailyData = async () => {
+    const workflow = await api.getDailyWorkflow();
+    if (workflow) {
+      setCompletedItems({
+        devotional: workflow.devotional_completed,
+        study: workflow.study_completed,
+        journal: workflow.journal_completed,
+        challenge: workflow.challenge_completed,
+      });
+      setPrayerMinutes(workflow.prayer_minutes || 0);
+      setVersesRead(workflow.verses_read || 0);
+    }
+    
+    const progressStats = await api.getProgressStats();
+    setStats({
+      currentStreak: progressStats.currentStreak || 0,
+      totalDays: progressStats.totalDays || 0
+    });
+  };
+
+  const toggleItem = async (key: keyof typeof completedItems) => {
+    const newValue = !completedItems[key];
+    setCompletedItems((prev) => ({ ...prev, [key]: newValue }));
+    
+    // Update in database
+    const updates = { [`${key}_completed`]: newValue };
+    await api.updateDailyWorkflow(updates);
   };
 
   const completedCount = Object.values(completedItems).filter(Boolean).length;
@@ -46,9 +80,9 @@ export default function HomeScreen() {
             <ProgressRing progress={(completedCount / 4) * 100} size={100} label="Tasks" />
           </View>
           <View style={styles.statsColumn}>
-            <StatCard icon="clock" title="Prayer" value="45 min" />
+            <StatCard icon="clock" title="Prayer" value={`${prayerMinutes} min`} />
             <Spacer height={Spacing.md} />
-            <StatCard icon="book" title="Verses" value="3" />
+            <StatCard icon="book" title="Verses" value={versesRead.toString()} />
           </View>
         </View>
       </View>
@@ -90,9 +124,9 @@ export default function HomeScreen() {
 
       <View style={styles.section}>
         <ThemedText style={styles.sectionTitle}>Quick Insights</ThemedText>
-        <StatCard icon="zap" title="Current Streak" value="12 days" subtitle="Keep the momentum" />
+        <StatCard icon="zap" title="Current Streak" value={`${stats.currentStreak} days`} subtitle="Keep the momentum" />
         <Spacer height={Spacing.md} />
-        <StatCard icon="award" title="This Week" value="5/7 days" subtitle="Almost perfect" />
+        <StatCard icon="award" title="Total Days" value={`${stats.totalDays} days`} subtitle="On your journey" />
       </View>
 
       <Spacer height={Spacing.xl} />

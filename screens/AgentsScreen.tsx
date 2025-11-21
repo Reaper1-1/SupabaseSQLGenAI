@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, StyleSheet, FlatList, TextInput, Pressable } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, FlatList, TextInput, Pressable, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { AgentCard } from "@/components/AgentCard";
@@ -7,6 +7,7 @@ import { ChatBubble } from "@/components/ChatBubble";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import api from "@/lib/api";
 
 interface ChatMessage {
   id: string;
@@ -25,35 +26,72 @@ export default function AgentsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [selectedAgent, setSelectedAgent] = useState("breakup");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      message: "Hey there. I'm here to help you navigate this. What's on your mind?",
-      isUser: false,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSend = () => {
-    if (input.trim()) {
+  // Load initial message when agent changes
+  useEffect(() => {
+    const loadHistory = async () => {
+      const history = await api.getConversationHistory(selectedAgent);
+      if (history.length === 0) {
+        // Add welcome message for new conversation
+        const welcomeMessages = {
+          breakup: "Hey brother. I know you're going through something heavy. I'm here to help you process this and come out stronger. What's weighing on you today?",
+          journal: "Welcome. This is your space to explore what's really going on beneath the surface. What thoughts have been circling in your mind?",
+          prayer: "I'm glad you're here. Whether you're new to prayer or been doing it for years, God's ready to listen. What's on your heart?",
+          habits: "Ready to build the life you want? Small changes, done consistently, create massive results. What habit are you working on?"
+        };
+        
+        setMessages([{
+          id: "welcome",
+          message: welcomeMessages[selectedAgent as keyof typeof welcomeMessages] || "How can I help you today?",
+          isUser: false
+        }]);
+      } else {
+        // Convert history to chat messages
+        const chatMessages = history.map((msg: any, index: number) => ({
+          id: msg.id || index.toString(),
+          message: msg.content,
+          isUser: msg.role === 'user'
+        }));
+        setMessages(chatMessages);
+      }
+    };
+    
+    loadHistory();
+  }, [selectedAgent]);
+
+  const handleSend = async () => {
+    if (input.trim() && !isLoading) {
       const newMessage: ChatMessage = {
         id: Date.now().toString(),
         message: input,
         isUser: true,
       };
       setMessages((prev) => [...prev, newMessage]);
+      setInput("");
+      setIsLoading(true);
 
-      setTimeout(() => {
-        const response: ChatMessage = {
+      try {
+        const response = await api.sendChatMessage(selectedAgent, input);
+        const responseMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          message:
-            "That's a powerful thought. Let's explore this together. What do you think the first step should be?",
+          message: response,
           isUser: false,
         };
-        setMessages((prev) => [...prev, response]);
-      }, 500);
-
-      setInput("");
+        setMessages((prev) => [...prev, responseMessage]);
+      } catch (error) {
+        console.error('Chat error:', error);
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          message: "I'm having trouble connecting right now, but I'm still here. Try sharing again in a moment.",
+          isUser: false,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
