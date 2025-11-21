@@ -4,11 +4,17 @@ import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
+import DevotionalStackNavigator from "@/navigation/DevotionalStackNavigator";
+import AgentsStackNavigator from "@/navigation/AgentsStackNavigator";
+import ProgressStackNavigator from "@/navigation/ProgressStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
+  DevotionalTab: undefined;
+  AgentsTab: undefined;
+  ProgressTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -50,6 +56,36 @@ export default function MainTabNavigator() {
           title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="DevotionalTab"
+        component={DevotionalStackNavigator}
+        options={{
+          title: "Devotional",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="book-open" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AgentsTab"
+        component={AgentsStackNavigator}
+        options={{
+          title: "Agents",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="message-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ProgressTab"
+        component={ProgressStackNavigator}
+        options={{
+          title: "Progress",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="trending-up" size={size} color={color} />
           ),
         }}
       />
