@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { View, StyleSheet, FlatList, TextInput, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { AgentCard } from "@/components/AgentCard";
@@ -16,16 +16,23 @@ interface ChatMessage {
 }
 
 const AGENTS = [
-  { id: "breakup", name: "Breakup Coach", icon: "heart" as const },
-  { id: "journal", name: "Journal Coach", icon: "edit" as const },
-  { id: "prayer", name: "Prayer Coach", icon: "smile" as const },
-  { id: "habits", name: "Habits Coach", icon: "check-circle" as const },
+  { id: "devotional_guide", name: "Devotional Coach", icon: "book-open" as const },
+  { id: "journal_coach", name: "Journal Coach", icon: "edit-3" as const },
+  { id: "breakup_coach", name: "Breakup Coach", icon: "heart" as const },
+  { id: "habits_coach", name: "Habits Coach", icon: "check-circle" as const },
+  { id: "breakthrough_coach", name: "Breakthrough Coach", icon: "zap" as const },
+  { id: "bible_study_agent", name: "Bible Study", icon: "book" as const },
+  { id: "prayer_coach", name: "Prayer Coach", icon: "sun" as const },
+  { id: "leadership_mentor", name: "Leadership", icon: "users" as const },
+  { id: "emotional_intelligence_coach", name: "Emotional IQ", icon: "smile" as const },
+  { id: "workflow_meta_agent", name: "Workflow", icon: "layers" as const },
+  { id: "builder_handoff_agent", name: "Builder", icon: "code" as const },
 ];
 
 export default function AgentsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [selectedAgent, setSelectedAgent] = useState("breakup");
+  const [selectedAgent, setSelectedAgent] = useState("devotional_guide");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,10 +44,17 @@ export default function AgentsScreen() {
       if (history.length === 0) {
         // Add welcome message for new conversation
         const welcomeMessages = {
-          breakup: "Hey brother. I know you're going through something heavy. I'm here to help you process this and come out stronger. What's weighing on you today?",
-          journal: "Welcome. This is your space to explore what's really going on beneath the surface. What thoughts have been circling in your mind?",
-          prayer: "I'm glad you're here. Whether you're new to prayer or been doing it for years, God's ready to listen. What's on your heart?",
-          habits: "Ready to build the life you want? Small changes, done consistently, create massive results. What habit are you working on?"
+          devotional_guide: "Welcome to your daily walk with Scripture. I'm here to help you dive deeper into God's Word and apply timeless truth to modern struggles. What passage or theme would you like to explore today?",
+          journal_coach: "Welcome. This is your space to explore what's really going on beneath the surface. What thoughts have been circling in your mind?",
+          breakup_coach: "Hey brother. I know you're going through something heavy. I'm here to help you process this and come out stronger. What's weighing on you today?",
+          habits_coach: "Ready to build the life you want? Small changes, done consistently, create massive results. What habit are you working on?",
+          breakthrough_coach: "I'm here to help you confront what you've been avoiding and find freedom. Every stronghold can fall with truth and action. What battle are you facing today?",
+          bible_study_agent: "Let's dig into Scripture together. I can help with context, cross-references, and practical application. What passage or topic would you like to study?",
+          prayer_coach: "I'm glad you're here. Whether you're new to prayer or been doing it for years, God's ready to listen. What's on your heart?",
+          leadership_mentor: "Leadership starts with leading yourself well. I'm here to help you develop the courage and integrity to influence others. What leadership challenge are you facing?",
+          emotional_intelligence_coach: "Many men never learned the language of emotions. I'm here to help you understand and express what you feel in healthy ways. What emotions are present for you right now?",
+          workflow_meta_agent: "I analyze your situation and recommend which coaches and routines will serve you best. Tell me about your current challenges and goals.",
+          builder_handoff_agent: "I help translate ministry vision into technical specifications. What feature or system would you like to build?"
         };
         
         setMessages([{
@@ -102,17 +116,23 @@ export default function AgentsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={styles.header}>
         <ThemedText style={styles.title}>Select Your Coach</ThemedText>
-        <View style={styles.agentGrid}>
+        <ScrollView 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.agentScrollContent}
+          style={styles.agentScrollView}
+        >
           {AGENTS.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              name={agent.name}
-              icon={agent.icon}
-              selected={selectedAgent === agent.id}
-              onPress={() => setSelectedAgent(agent.id)}
-            />
+            <View key={agent.id} style={styles.agentCardWrapper}>
+              <AgentCard
+                name={agent.name}
+                icon={agent.icon}
+                selected={selectedAgent === agent.id}
+                onPress={() => setSelectedAgent(agent.id)}
+              />
+            </View>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       <View style={styles.divider} />
@@ -164,16 +184,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
     marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
-  agentGrid: {
-    justifyContent: "space-between",
+  agentScrollView: {
+    flexGrow: 0,
+  },
+  agentScrollContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  agentCardWrapper: {
+    marginRight: Spacing.sm,
   },
   divider: {
     height: 1,
