@@ -1,0 +1,242 @@
+export const betterManSchemaSql = `
+-- Enable UUID extension (if not already enabled)
+create extension if not exists "uuid-ossp";
+
+-- ==========================================
+-- 0) Helper: moddatetime() trigger function
+-- ==========================================
+create or replace function public.moddatetime(_ignored anyelement)
+returns trigger
+language plpgsql
+as $$
+begin
+  NEW.updated_at = now();
+  return NEW;
+end;
+$$;
+
+-- ==========================================
+-- 1) user_profiles
+-- ==========================================
+create table if not exists user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text unique,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger where tgname = 'update_user_profiles_updated_at'
+  ) then
+    create trigger update_user_profiles_updated_at
+    before update on user_profiles
+    for each row
+    execute procedure public.moddatetime(updated_at);
+  end if;
+end $$;
+
+alter table user_profiles enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can view their own profile'
+      and tablename = 'user_profiles'
+  ) then
+    create policy "Users can view their own profile"
+      on user_profiles
+      for select
+      using (auth.uid() = id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can update their own profile'
+      and tablename = 'user_profiles'
+  ) then
+    create policy "Users can update their own profile"
+      on user_profiles
+      for update
+      using (auth.uid() = id);
+  end if;
+end $$;
+
+-- ==========================================
+-- 2) daily_workflows (DailyProgress v2)
+-- ==========================================
+create table if not exists daily_workflows (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  date date not null,
+  devotional_completed boolean default false,
+  study_completed boolean default false,
+  journal_completed boolean default false,
+  challenge_completed boolean default false,
+  prayer_minutes int default 0,
+  verses_read int default 0,
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, date)
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger where tgname = 'update_daily_workflows_updated_at'
+  ) then
+    create trigger update_daily_workflows_updated_at
+    before update on daily_workflows
+    for each row
+    execute procedure public.moddatetime(updated_at);
+  end if;
+end $$;
+
+alter table daily_workflows enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'User can read their own daily workflows'
+      and tablename = 'daily_workflows'
+  ) then
+    create policy "User can read their own daily workflows"
+      on daily_workflows
+      for select
+      using (auth.uid() = user_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'User can insert their own daily workflows'
+      and tablename = 'daily_workflows'
+  ) then
+    create policy "User can insert their own daily workflows"
+      on daily_workflows
+      for insert
+      with check (auth.uid() = user_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'User can update their own daily workflows'
+      and tablename = 'daily_workflows'
+  ) then
+    create policy "User can update their own daily workflows"
+      on daily_workflows
+      for update
+      using (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ==========================================
+-- 3) conversation_history
+-- ==========================================
+create table if not exists conversation_history (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  agent_name text not null,
+  role text check (role in ('user','assistant','system')),
+  content text not null,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+alter table conversation_history enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can read their own conversation history'
+      and tablename = 'conversation_history'
+  ) then
+    create policy "Users can read their own conversation history"
+      on conversation_history
+      for select
+      using (auth.uid() = user_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can insert their own conversation messages'
+      and tablename = 'conversation_history'
+  ) then
+    create policy "Users can insert their own conversation messages"
+      on conversation_history
+      for insert
+      with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ==========================================
+-- 4) agent_memory
+-- ==========================================
+create table if not exists agent_memory (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  agent_name text not null,
+  memory_key text,
+  memory_value text,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, agent_name, memory_key)
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger where tgname = 'update_agent_memory_updated_at'
+  ) then
+    create trigger update_agent_memory_updated_at
+    before update on agent_memory
+    for each row
+    execute procedure public.moddatetime(updated_at);
+  end if;
+end $$;
+
+alter table agent_memory enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can read their own agent memory'
+      and tablename = 'agent_memory'
+  ) then
+    create policy "Users can read their own agent memory"
+      on agent_memory
+      for select
+      using (auth.uid() = user_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can insert their own agent memory'
+      and tablename = 'agent_memory'
+  ) then
+    create policy "Users can insert their own agent memory"
+      on agent_memory
+      for insert
+      with check (auth.uid() = user_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where polname = 'Users can update their own agent memory'
+      and tablename = 'agent_memory'
+  ) then
+    create policy "Users can update their own agent memory"
+      on agent_memory
+      for update
+      using (auth.uid() = user_id);
+  end if;
+end $$;
+`;

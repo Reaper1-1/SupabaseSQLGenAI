@@ -20,12 +20,12 @@ async function handleAgentChat(req, res) {
     const historyResult = await pool.query(
       `SELECT role, content FROM conversation_history 
        WHERE user_id = $1 AND agent_name = $2 
-       ORDER BY created_at DESC 
+       ORDER BY created_at ASC 
        LIMIT 10`,
       [userId, agentName]
     );
     
-    const conversationHistory = historyResult.rows.reverse();
+    const conversationHistory = historyResult.rows;
     
     // Get agent's memory about this user
     const memoryResult = await pool.query(

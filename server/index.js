@@ -94,11 +94,18 @@ app.post('/api/workflows/update', async (req, res) => {
   const { userId, date, updates } = req.body;
   
   try {
-    const setClause = Object.keys(updates)
-      .map((key, index) => `${key} = $${index + 4}`)
+    // Validate that updates is not empty
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+    
+    const baseParams = 3; // userId, date, updated_at
+    const updateKeys = Object.keys(updates);
+    const setClause = updateKeys
+      .map((key, index) => `${key} = $${index + baseParams + 1}`)
       .join(', ');
     
-    const values = [userId, date, new Date(), ...Object.values(updates)];
+    const values = [userId, date, new Date(), ...updateKeys.map(k => updates[k])];
     
     const result = await pool.query(
       `UPDATE daily_workflows 
@@ -191,12 +198,12 @@ app.get('/api/conversations/:userId/:agentName', async (req, res) => {
     const result = await pool.query(
       `SELECT * FROM conversation_history 
        WHERE user_id = $1 AND agent_name = $2 
-       ORDER BY created_at DESC 
+       ORDER BY created_at ASC 
        LIMIT $3`,
       [userId, agentName, limit]
     );
     
-    res.json({ messages: result.rows.reverse() });
+    res.json({ messages: result.rows });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -265,6 +272,35 @@ app.post('/api/memory/update', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Better Man Project API running on port ${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Better Man Project API running on http://0.0.0.0:${PORT}`);
+  console.log(`Health check available at http://localhost:${PORT}/api/health`);
+});
+
+// Handle graceful shutdown
+let isShuttingDown = false;
+process.on('SIGTERM', () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    pool.end().then(() => {
+      process.exit(0);
+    });
+  });
+});
+
+process.on('SIGINT', () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    pool.end().then(() => {
+      process.exit(0);
+    });
+  });
 });
