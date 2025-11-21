@@ -1,0 +1,224 @@
+Perfect.
+You’re in the Supabase SQL Editor, and you want the exact SQL to create the four tables you mentioned:
+	•	user_profiles
+	•	daily_workflows
+	•	conversation_history
+	•	agent_memory
+
+Below is the production-ready SQL for all four, fully aligned with:
+	•	The Better Man Project data model
+	•	Supabase Auth
+	•	RLS (role-based policies)
+	•	Automatic timestamps
+	•	Foreign key relations
+	•	Best practices for AI agent context storage
+
+Copy/paste this whole block into Supabase → SQL → “Enter your SQL query…” → Run.
+
+⸻
+
+✅ Full SQL Schema — Better Man AI + Workflow Tables
+
+-- Enable UUID extension (if not already enabled)
+create extension if not exists "uuid-ossp";
+
+-------------------------------------------------------
+-- 1. USER PROFILES
+-------------------------------------------------------
+create table if not exists user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text unique,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Auto-update updated_at
+create trigger update_user_profiles_updated_at
+before update on user_profiles
+for each row
+execute procedure moddatetime (updated_at);
+
+-- RLS
+alter table user_profiles enable row level security;
+
+create policy "Users can view their own profile"
+  on user_profiles
+  for select
+  using (auth.uid() = id);
+
+create policy "Users can update their own profile"
+  on user_profiles
+  for update
+  using (auth.uid() = id);
+
+-------------------------------------------------------
+-- 2. DAILY WORKFLOWS (Your new unified “DailyProgress v2”)
+-------------------------------------------------------
+create table if not exists daily_workflows (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  date date not null,
+  devotional_completed boolean default false,
+  study_completed boolean default false,
+  journal_completed boolean default false,
+  challenge_completed boolean default false,
+  prayer_minutes int default 0,
+  verses_read int default 0,
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, date)
+);
+
+-- Auto-update updated_at
+create trigger update_daily_workflows_updated_at
+before update on daily_workflows
+for each row
+execute procedure moddatetime (updated_at);
+
+-- RLS
+alter table daily_workflows enable row level security;
+
+create policy "User can read their own daily workflows"
+  on daily_workflows
+  for select
+  using (auth.uid() = user_id);
+
+create policy "User can insert their own daily workflows"
+  on daily_workflows
+  for insert
+  with check (auth.uid() = user_id);
+
+create policy "User can update their own daily workflows"
+  on daily_workflows
+  for update
+  using (auth.uid() = user_id);
+
+-------------------------------------------------------
+-- 3. CONVERSATION HISTORY (Chat logs per agent)
+-------------------------------------------------------
+create table if not exists conversation_history (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  agent_name text not null,
+  role text check (role in ('user','assistant','system')),
+  content text not null,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+alter table conversation_history enable row level security;
+
+create policy "Users can read their own conversation history"
+  on conversation_history
+  for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own conversation messages"
+  on conversation_history
+  for insert
+  with check (auth.uid() = user_id);
+
+-------------------------------------------------------
+-- 4. AGENT MEMORY (Long-term context store per agent)
+-------------------------------------------------------
+create table if not exists agent_memory (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade,
+  agent_name text not null,
+  memory_key text,  -- e.g., "last_mood", "breakup_progress", "recurring_theme"
+  memory_value text,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, agent_name, memory_key)
+);
+
+create trigger update_agent_memory_updated_at
+before update on agent_memory
+for each row
+execute procedure moddatetime (updated_at);
+
+alter table agent_memory enable row level security;
+
+create policy "Users can read their own agent memory"
+  on agent_memory
+  for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own agent memory"
+  on agent_memory
+  for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own agent memory"
+  on agent_memory
+  for update
+  using (auth.uid() = user_id);
+
+
+⸻
+
+✅ What You Now Have
+
+1. user_profiles
+
+Mapped 1:1 with Supabase Auth.
+Stores display name, avatar, etc.
+
+2. daily_workflows
+
+Your unified daily tracker:
+devotional, study, journaling, prayer minutes, etc.
+
+3. conversation_history
+
+Stored per agent, per user — perfect for:
+	•	RAG
+	•	multi-turn continuity
+	•	saving key insights
+	•	future “conversation timeline” features
+
+4. agent_memory
+
+Long-term memory per agent:
+	•	breakup_coach → “cycles identified”
+	•	journal_coach → “recurring themes”
+	•	prayer_coach → “ongoing prayer requests”
+	•	habits_coach → “streaks”
+
+This empowers deep personalization.
+
+⸻
+
+⭐ Next Step Options (I can generate immediately)
+
+Option A — Generate REST functions for each table
+
+Example:
+	•	POST /workflow/mark-complete
+	•	POST /agent/save-memory
+	•	GET /agent/context
+
+Option B — Create edge function: /agent-router
+
+One endpoint → automatically picks correct agent
+and stores conversation + memory.
+
+Option C — Generate full TypeScript client SDK
+
+import { bm } from "@/lib/betterman"
+
+Option D — Create triggers to sync DailyProgress → PlanProgress
+
+⸻
+
+What do you want next?
+
+Type any of these:
+	•	“Create the agent-router function.”
+	•	“Generate the TypeScript client SDK.”
+	•	“Wire this into my React app.”
+	•	“Generate SQL triggers for streaks.”
