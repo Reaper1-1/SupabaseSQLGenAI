@@ -1,0 +1,173 @@
+export type AgentName =
+  | "devotional_guide"
+  | "journal_coach"
+  | "breakup_coach"
+  | "habits_coach"
+  | "breakthrough_coach"
+  | "bible_study_agent"
+  | "prayer_coach"
+  | "leadership_mentor"
+  | "emotional_intelligence_coach"
+  | "workflow_meta_agent"
+  | "builder_handoff_agent";
+
+export type AgentEntity =
+  | "Devotional"
+  | "BibleStudy"
+  | "LessonPlan"
+  | "DailyReading"
+  | "JournalEntry"
+  | "DailyProgress"
+  | "PlanProgress"
+  | "PrayerRequest"
+  | "Discussion"
+  | "AccountabilityGroup"
+  | "Testimony"
+  | "HeroVerseConfig"
+  | "HistoricalFact"
+  | "ApologeticsChallenge"
+  | "RecommendedTool"
+  | "EmailSubscriber";
+
+export interface AgentConfig {
+  name: AgentName;
+  title: string;
+  description: string;
+  entities: AgentEntity[];
+  // optional: default system prompt key in your prompt store / Base44
+  systemPromptKey?: string;
+  // optional: tags for UI and routing
+  tags?: string[];
+}
+
+export const AGENTS: AgentConfig[] = [
+  {
+    name: "devotional_guide",
+    title: "Devotional & Discipleship Coach",
+    description:
+      "Provides deeper scripture context, historical insights, and personalized application questions based on your spiritual journey.",
+    entities: [
+      "Devotional",
+      "DailyReading",
+      "BibleStudy",
+      "LessonPlan",
+      "JournalEntry",
+      "DailyProgress",
+    ],
+    systemPromptKey: "devotional_guide_v1",
+    tags: ["devotional", "discipleship", "scripture", "context"],
+  },
+  {
+    name: "journal_coach",
+    title: "Journal Reflection Coach",
+    description:
+      "Guides men through meaningful journaling, reflection, and spiritual self-assessment.",
+    entities: ["JournalEntry", "DailyProgress"],
+    systemPromptKey: "journal_coach_v1",
+    tags: ["journal", "reflection", "processing"],
+  },
+  {
+    name: "breakup_coach",
+    title: "Breakup & Toxic Relationship Recovery Coach",
+    description:
+      "Supports men healing from toxic relationships, emotional manipulation, and unhealthy patterns.",
+    entities: ["JournalEntry"],
+    systemPromptKey: "breakup_coach_v1",
+    tags: ["breakup", "toxic", "healing", "relationships"],
+  },
+  {
+    name: "habits_coach",
+    title: "Habits & Accountability Coach",
+    description:
+      "Helps men build small consistent habits, track progress, and stay accountable in their spiritual walk.",
+    entities: ["DailyProgress", "JournalEntry", "PlanProgress"],
+    systemPromptKey: "habits_coach_v1",
+    tags: ["habits", "accountability", "streaks"],
+  },
+  {
+    name: "breakthrough_coach",
+    title: "Breakthrough Coach",
+    description:
+      "Helps men confront internal battles, identify root issues, and walk toward freedom, courage, integrity, and spiritual strength.",
+    entities: ["JournalEntry", "DailyProgress", "Testimony"],
+    systemPromptKey: "breakthrough_coach_v1",
+    tags: ["freedom", "inner_work", "strongholds"],
+  },
+  {
+    name: "bible_study_agent",
+    title: "Bible Study Guide",
+    description:
+      "Provides deep contextual analysis, historical insights, cross-references, and practical application for men pursuing biblical depth.",
+    entities: [
+      "BibleStudy",
+      "LessonPlan",
+      "Devotional",
+      "DailyReading",
+      "HistoricalFact",
+      "ApologeticsChallenge",
+    ],
+    systemPromptKey: "bible_study_agent_v1",
+    tags: ["study", "doctrine", "context"],
+  },
+  {
+    name: "prayer_coach",
+    title: "Prayer Coach",
+    description:
+      "Helps men talk honestly with God, build a consistent prayer life, and pray through specific struggles, relationships, and decisions.",
+    entities: ["JournalEntry", "PrayerRequest", "DailyProgress"],
+    systemPromptKey: "prayer_coach_v1",
+    tags: ["prayer", "intercession", "habits"],
+  },
+  {
+    name: "leadership_mentor",
+    title: "Leadership & Calling Mentor",
+    description:
+      "Coaches men in leading themselves, their families, and their teams with integrity, courage, and servant-hearted strength.",
+    entities: ["JournalEntry", "DailyProgress", "AccountabilityGroup"],
+    systemPromptKey: "leadership_mentor_v1",
+    tags: ["leadership", "calling", "responsibility"],
+  },
+  {
+    name: "emotional_intelligence_coach",
+    title: "Emotional Intelligence Coach",
+    description:
+      "Helps men name what they feel, understand why they feel it, and respond in healthy, God-honoring ways.",
+    entities: ["JournalEntry", "DailyProgress"],
+    systemPromptKey: "emotional_intelligence_coach_v1",
+    tags: ["emotions", "relationships", "self-awareness"],
+  },
+  {
+    name: "workflow_meta_agent",
+    title: "Workflow Orchestrator",
+    description:
+      "Analyzes the user's situation and recommends which Better Man agents and flows to use next.",
+    entities: [
+      "DailyProgress",
+      "JournalEntry",
+      "Devotional",
+      "BibleStudy",
+      "PlanProgress",
+    ],
+    systemPromptKey: "workflow_meta_agent_v1",
+    tags: ["routing", "meta", "planning"],
+  },
+  {
+    name: "builder_handoff_agent",
+    title: "Builder Handoff & Implementation Agent",
+    description:
+      "Translates product ideas, content models, and UX into technical specs and code snippets for developers.",
+    entities: [
+      "Devotional",
+      "BibleStudy",
+      "LessonPlan",
+      "HeroVerseConfig",
+      "RecommendedTool",
+    ],
+    systemPromptKey: "builder_handoff_agent_v1",
+    tags: ["developer", "handoff", "spec"],
+  },
+];
+
+export function getAgentConfig(name: AgentName): AgentConfig | undefined {
+  return AGENTS.find((a) => a.name === name);
+}
