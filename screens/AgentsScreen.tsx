@@ -4,7 +4,6 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { AgentCard } from "@/components/AgentCard";
 import { ChatBubble } from "@/components/ChatBubble";
-import Spacer from "@/components/Spacer";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -65,23 +64,17 @@ export default function AgentsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={styles.header}>
         <ThemedText style={styles.title}>Select Your Coach</ThemedText>
-        <FlatList
-          data={AGENTS}
-          renderItem={({ item }) => (
+        <View style={styles.agentGrid}>
+          {AGENTS.map((agent) => (
             <AgentCard
-              name={item.name}
-              icon={item.icon}
-              selected={selectedAgent === item.id}
-              onPress={() => setSelectedAgent(item.id)}
+              key={agent.id}
+              name={agent.name}
+              icon={agent.icon}
+              selected={selectedAgent === agent.id}
+              onPress={() => setSelectedAgent(agent.id)}
             />
-          )}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={false}
-          numColumns={4}
-          columnWrapperStyle={styles.agentGrid}
-        />
+          ))}
+        </View>
       </View>
 
       <View style={styles.divider} />
