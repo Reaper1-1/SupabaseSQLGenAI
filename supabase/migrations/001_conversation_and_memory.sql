@@ -1,5 +1,5 @@
--- Better Man Project: Conversation and Memory Tables
--- This migration creates tables for agent conversation history and memory persistence
+-- Better Man Project: Conversation History and Agent Memory Tables
+-- Production-ready schema with RLS policies and auth.users integration
 
 -- ========================================
 -- 1. Conversation History Table
@@ -7,72 +7,48 @@
 -- Stores all conversations between users and agents
 create table if not exists public.conversation_history (
   id uuid primary key default gen_random_uuid(),
-  
-  -- Use text for user_id to be more flexible (no FK constraint to auth.users)
-  user_id text not null,
-  
-  -- Agent identifier
+
+  user_id uuid not null references auth.users(id) on delete cascade,
   agent_id text not null,
-  
-  -- Message content
+
   user_message text not null,
-  agent_reply text not null,
-  
-  -- Optional debug and metadata
-  agent_debug jsonb,                    -- Raw debug/traces from the agent (optional)
-  metadata jsonb,                       -- Client info, platform, etc. (optional)
-  
-  -- Timestamps
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  agent_reply text,
+  agent_debug jsonb,
+  metadata jsonb,
+
+  session_id text,
+  request_id text,
+
+  created_at timestamptz not null default now()
 );
 
 -- Indexes for performance
-create index if not exists conversation_history_user_created_idx
+create index if not exists idx_convo_user_created
   on public.conversation_history (user_id, created_at desc);
-
-create index if not exists conversation_history_agent_idx
-  on public.conversation_history (agent_id);
-
-create index if not exists conversation_history_user_agent_idx
-  on public.conversation_history (user_id, agent_id, created_at desc);
 
 -- ========================================
 -- 2. Agent Memory Table
 -- ========================================
 -- Per-user, per-agent rolling memory and last context
 create table if not exists public.agent_memory (
-  id uuid primary key default gen_random_uuid(),
-  
-  -- Use text for user_id to be more flexible
-  user_id text not null,
-  
-  -- Agent identifier  
+  user_id uuid not null references auth.users(id) on delete cascade,
   agent_id text not null,
-  
-  -- Last interaction details
-  last_message text,                           -- Last user message
-  last_reply text,                             -- Last agent reply
-  last_used_at timestamptz not null default now(),
-  
-  -- Memory and context storage
-  memory_context jsonb,                        -- Structured context for that agent
-  metadata jsonb,                              -- Any additional data
-  
-  -- Timestamps
+
+  last_message text,
+  last_reply text,
+  last_used_at timestamptz default now(),
+  memory_context jsonb,
+  metadata jsonb,
+
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  
-  -- Ensure one row per (user, agent) so upsert works cleanly
-  unique (user_id, agent_id)
+
+  primary key (user_id, agent_id)
 );
 
 -- Indexes for performance
-create index if not exists agent_memory_user_agent_idx
+create index if not exists idx_agent_memory_user_agent
   on public.agent_memory (user_id, agent_id);
-
-create index if not exists agent_memory_last_used_idx
-  on public.agent_memory (last_used_at desc);
 
 -- ========================================
 -- 3. Updated_at Trigger Function
@@ -114,35 +90,33 @@ create trigger set_agent_memory_updated_at
 alter table public.conversation_history enable row level security;
 alter table public.agent_memory enable row level security;
 
--- Create policies for conversation_history
--- Users can only see and insert their own conversations
-create policy "Users can view own conversations"
+-- RLS Policies for conversation_history
+create policy "Users can read own conversation history"
   on public.conversation_history
   for select
-  using (auth.uid()::text = user_id or user_id = auth.jwt()->>'email');
+  using (auth.uid() = user_id);
 
-create policy "Users can insert own conversations"  
+create policy "Users can insert own conversation history"
   on public.conversation_history
   for insert
-  with check (auth.uid()::text = user_id or user_id = auth.jwt()->>'email');
+  with check (auth.uid() = user_id);
 
--- Create policies for agent_memory
--- Users can only see and manage their own memory
-create policy "Users can view own agent memory"
+-- RLS Policies for agent_memory
+create policy "Users read own memory"
   on public.agent_memory
   for select
-  using (auth.uid()::text = user_id or user_id = auth.jwt()->>'email');
+  using (auth.uid() = user_id);
 
-create policy "Users can insert own agent memory"
+create policy "Users upsert own memory"
   on public.agent_memory
   for insert
-  with check (auth.uid()::text = user_id or user_id = auth.jwt()->>'email');
+  with check (auth.uid() = user_id);
 
-create policy "Users can update own agent memory"
+create policy "Users update own memory"
   on public.agent_memory
   for update
-  using (auth.uid()::text = user_id or user_id = auth.jwt()->>'email')
-  with check (auth.uid()::text = user_id or user_id = auth.jwt()->>'email');
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- ========================================
 -- 6. Grant permissions for edge functions
