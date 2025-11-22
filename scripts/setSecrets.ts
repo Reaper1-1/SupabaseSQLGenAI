@@ -57,6 +57,7 @@ async function setSecrets() {
     console.log('Setting Edge Function Secrets\n');
     console.log('This script will set the following secrets:');
     console.log('  - BASE44_API_KEY (required for Base44 integration)');
+    console.log('  - BASE44_AGENT_API_URL (Base44 agent endpoint URL)');
     console.log('  - OPENAI_API_KEY (required for AI agents)');
     console.log('  - SUPABASE_SERVICE_ROLE_KEY (for database access)');
     console.log('  - SUPABASE_DB_URL (database connection)');
@@ -74,6 +75,10 @@ async function setSecrets() {
     // BASE44 API Key
     const base44Key = await promptSecret('BASE44_API_KEY');
     if (base44Key) secrets.BASE44_API_KEY = base44Key;
+    
+    // BASE44 Agent API URL
+    const base44Url = await promptSecret('BASE44_AGENT_API_URL');
+    if (base44Url) secrets.BASE44_AGENT_API_URL = base44Url;
     
     // OpenAI API Key
     const openaiKey = await promptSecret('OPENAI_API_KEY');
@@ -173,6 +178,7 @@ async function bulkUpdateFromEnv() {
     // Define which environment variables to sync
     const secretKeys = [
       'BASE44_API_KEY',
+      'BASE44_AGENT_API_URL',
       'OPENAI_API_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
       'SUPABASE_DB_URL',

@@ -1,513 +1,252 @@
-/**
- * Agent Router Edge Function
- * Routes chat messages to appropriate AI agents and handles memory persistence
- */
+// supabase/functions/agent-router/index.ts
+// Better Man Project — Agent Router Edge Function
+// - Receives: { user_id, agent_id, message, context? }
+// - Calls external AI agent (Base44 / OpenAI / etc.)
+// - Logs to: conversation_history & agent_memory
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Agent entity mapping - which entities each agent works with
-const AGENT_ENTITY_MAP = {
-  devotional_guide: ["Devotional", "DailyReading", "DailyProgress"],
-  journal_coach: ["JournalEntry", "DailyProgress"],
-  breakup_coach: ["JournalEntry"],
-  habits_coach: ["DailyProgress", "JournalEntry"],
-  breakthrough_coach: ["JournalEntry", "DailyProgress"],
-  bible_study_agent: ["BibleStudy", "LessonPlan", "Devotional"],
-  prayer_coach: ["JournalEntry", "PrayerRequest"],
-  leadership_mentor: ["JournalEntry", "DailyProgress"],
-  emotional_intelligence_coach: ["JournalEntry", "DailyProgress"],
-  workflow_meta_agent: ["DailyProgress", "JournalEntry"],
-  builder_handoff_agent: ["Devotional", "BibleStudy", "LessonPlan"],
-};
+// ---------- Env + Supabase client ----------
 
-// Agent personalities and system prompts (matching the existing agents.js structure)
-const AGENT_PROMPTS = {
-  devotional_guide: {
-    name: 'Devotional & Discipleship Coach',
-    systemPrompt: `You are a wise devotional guide helping men dive deeper into Scripture and grow as disciples of Christ.
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-Your approach:
-- Provide rich historical and cultural context for passages
-- Connect Old and New Testament themes
-- Ask penetrating application questions
-- Challenge comfortable Christianity with Kingdom truth
-- Encourage daily rhythm of Word, worship, and witness
-
-Be scholarly yet accessible. Help him see Scripture with fresh eyes and apply timeless truth to modern struggles.`,
-    entities: AGENT_ENTITY_MAP.devotional_guide
-  },
-
-  journal_coach: {
-    name: 'Journal Reflection Coach',
-    systemPrompt: `You are a skilled journal coach helping men process emotions and gain clarity through guided reflection.
-
-Your approach:
-- Ask powerful questions that provoke deep thinking
-- Help identify patterns in thoughts and behaviors
-- Encourage honest self-examination without shame
-- Celebrate insights and breakthroughs
-- Connect daily experiences to larger life themes
-
-Guide with questions more than answers. Create space for him to discover his own truth while pointing to God's truth.`,
-    entities: AGENT_ENTITY_MAP.journal_coach
-  },
-
-  breakup_coach: {
-    name: 'Breakup & Toxic Recovery Coach',
-    systemPrompt: `You are a compassionate breakup recovery coach specializing in helping men heal from toxic relationships and emotional manipulation.
-
-Your approach:
-- Acknowledge pain without wallowing
-- Identify manipulation patterns and red flags
-- Rebuild identity apart from the relationship
-- Focus on growth over grieving
-- Establish healthy boundaries for the future
-
-Be direct but empathetic. Help him see the toxicity clearly while building hope for healthier relationships.`,
-    entities: AGENT_ENTITY_MAP.breakup_coach
-  },
-
-  habits_coach: {
-    name: 'Habits & Accountability Coach',
-    systemPrompt: `You are a disciplined habits coach helping men build consistent routines and break destructive patterns.
-
-Your approach:
-- Focus on small, sustainable changes
-- Track progress relentlessly
-- Celebrate wins, learn from setbacks
-- Connect habits to identity transformation
-- Use accountability as positive pressure
-
-Be firm but encouraging. Help him become the man he wants to be through daily disciplines.`,
-    entities: AGENT_ENTITY_MAP.habits_coach
-  },
-
-  breakthrough_coach: {
-    name: 'Breakthrough Coach',
-    systemPrompt: `You are a powerful breakthrough coach helping men confront internal battles and walk toward freedom.
-
-Your approach:
-- Identify root issues, not just symptoms
-- Call out strongholds with love and truth
-- Provide practical steps toward freedom
-- Celebrate every victory, no matter how small
-- Connect spiritual warfare to daily choices
-
-Be bold yet compassionate. Help him face what he's been avoiding and find courage for the fight.`,
-    entities: AGENT_ENTITY_MAP.breakthrough_coach
-  },
-
-  bible_study_agent: {
-    name: 'Bible Study Guide',
-    systemPrompt: `You are an expert Bible study guide providing deep contextual analysis and practical application for men pursuing biblical depth.
-
-Your approach:
-- Explain historical and cultural context
-- Provide cross-references and parallel passages
-- Discuss original language insights (Greek/Hebrew)
-- Address apparent contradictions honestly
-- Connect doctrine to daily life
-
-Be thorough yet clear. Make complex theology accessible without dumbing it down.`,
-    entities: AGENT_ENTITY_MAP.bible_study_agent
-  },
-
-  prayer_coach: {
-    name: 'Prayer Coach',
-    systemPrompt: `You are a spiritual prayer coach helping men develop authentic, powerful prayer lives.
-
-Your approach:
-- Encourage honest conversation with God
-- Provide Scripture to pray through
-- Help develop consistent prayer rhythms
-- Balance thanksgiving, confession, and petition
-- Connect prayer to action
-
-Be reverent yet relatable. Prayer is relationship, not performance.`,
-    entities: AGENT_ENTITY_MAP.prayer_coach
-  },
-
-  leadership_mentor: {
-    name: 'Leadership & Calling Mentor',
-    systemPrompt: `You are a seasoned leadership mentor helping men lead with integrity, courage, and servant-hearted strength.
-
-Your approach:
-- Develop self-leadership before leading others
-- Build character over competence
-- Address leadership challenges directly
-- Connect calling to daily responsibilities
-- Model servant leadership like Jesus
-
-Be challenging yet supportive. Great leaders are forged through pressure and practice.`,
-    entities: AGENT_ENTITY_MAP.leadership_mentor
-  },
-
-  emotional_intelligence_coach: {
-    name: 'Emotional Intelligence Coach',
-    systemPrompt: `You are an emotional intelligence coach helping men understand and manage their emotions in healthy, God-honoring ways.
-
-Your approach:
-- Help name emotions accurately
-- Explore the message behind feelings
-- Develop healthy expression patterns
-- Connect emotions to relationships
-- Build emotional resilience
-
-Be patient yet direct. Many men never learned this language - teach it with grace.`,
-    entities: AGENT_ENTITY_MAP.emotional_intelligence_coach
-  },
-
-  workflow_meta_agent: {
-    name: 'Workflow Orchestrator',
-    systemPrompt: `You are a meta-agent that analyzes the user's situation and recommends which Better Man agents and workflows to engage.
-
-Your approach:
-- Assess current struggles and goals
-- Recommend specific agents for specific needs
-- Suggest daily/weekly workflow combinations
-- Track overall progress across all areas
-- Adjust recommendations based on growth
-
-Be strategic and holistic. Help him engage the right support at the right time.`,
-    entities: AGENT_ENTITY_MAP.workflow_meta_agent
-  },
-
-  builder_handoff_agent: {
-    name: 'Builder Handoff Agent',
-    systemPrompt: `You are a technical translation agent that converts ministry ideas and content into developer-ready specifications.
-
-Your approach:
-- Translate vision into technical requirements
-- Provide code snippets and schemas
-- Suggest implementation patterns
-- Define data models clearly
-- Bridge ministry and technology
-
-Be precise yet accessible. Help non-technical leaders communicate with developers effectively.`,
-    entities: AGENT_ENTITY_MAP.builder_handoff_agent
-  }
-};
-
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  throw new Error("Supabase environment not configured for edge function");
 }
 
-/**
- * Initialize Supabase client with service role key for full access
- */
-function createServiceSupabase() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  })
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+// OPTIONAL: Base44 or other agent service
+const BASE44_AGENT_API_URL = Deno.env.get("BASE44_AGENT_API_URL"); // e.g. your Base44 endpoint
+const BASE44_API_KEY = Deno.env.get("BASE44_API_KEY"); // stored as edge secret
+
+// ---------- Types ----------
+
+type AgentId =
+  | "devotional_guide"
+  | "journal_coach"
+  | "breakup_coach"
+  | "habits_coach"
+  | "breakthrough_coach"
+  | "bible_study_agent"
+  | "prayer_coach"
+  | "leadership_mentor"
+  | "emotional_intelligence_coach"
+  | "workflow_meta_agent";
+
+interface AgentRequestBody {
+  user_id: string;
+  agent_id: AgentId;
+  message: string;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
-/**
- * Get or create user's agent memory
- */
-async function getAgentMemory(supabase: any, userId: string, agentName: string) {
-  const { data, error } = await supabase
-    .from('agent_memory')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('agent_name', agentName)
-    .single()
-  
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
-    console.error('Error fetching agent memory:', error)
-    return {}
-  }
-  
-  return data?.memory_data || {}
+interface AgentResponse {
+  reply: string;
+  agent_id: AgentId;
+  debug?: Record<string, unknown>;
 }
 
-/**
- * Update agent memory
- */
-async function updateAgentMemory(
-  supabase: any,
-  userId: string,
-  agentName: string,
-  memoryUpdates: Record<string, any>
-) {
-  // Get existing memory
-  const currentMemory = await getAgentMemory(supabase, userId, agentName)
-  
-  // Merge with updates
-  const updatedMemory = { ...currentMemory, ...memoryUpdates }
-  
-  // Upsert the memory
-  const { error } = await supabase
-    .from('agent_memory')
-    .upsert({
-      user_id: userId,
-      agent_name: agentName,
-      memory_data: updatedMemory,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id,agent_name'
-    })
-  
-  if (error) {
-    console.error('Error updating agent memory:', error)
-  }
-}
+// ---------- Helpers ----------
 
-/**
- * Log conversation to history
- */
-async function logConversation(
-  supabase: any,
-  userId: string,
-  agentName: string,
-  userMessage: string,
-  agentResponse: string
-) {
-  const { error } = await supabase
-    .from('conversation_history')
-    .insert({
-      user_id: userId,
-      agent_name: agentName,
-      user_message: userMessage,
-      agent_response: agentResponse,
-      created_at: new Date().toISOString()
-    })
-  
-  if (error) {
-    console.error('Error logging conversation:', error)
-  }
-}
-
-/**
- * Get recent conversation history
- */
-async function getConversationHistory(
-  supabase: any,
-  userId: string,
-  agentName: string,
-  limit = 10
-) {
-  const { data, error } = await supabase
-    .from('conversation_history')
-    .select('user_message, agent_response, created_at')
-    .eq('user_id', userId)
-    .eq('agent_name', agentName)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  
-  if (error) {
-    console.error('Error fetching conversation history:', error)
-    return []
-  }
-  
-  // Reverse to get chronological order and format for OpenAI
-  return (data || []).reverse().flatMap(conv => [
-    { role: 'user', content: conv.user_message },
-    { role: 'assistant', content: conv.agent_response }
-  ])
-}
-
-/**
- * Call OpenAI API to get agent response
- */
-async function callOpenAI(
-  systemPrompt: string,
-  userMessage: string,
-  conversationHistory: any[],
-  agentMemory: Record<string, any>
-) {
-  const openaiKey = Deno.env.get('OPENAI_API_KEY')
-  
-  if (!openaiKey) {
-    throw new Error('OpenAI API key not configured')
-  }
-  
-  // Build context from memory
-  let contextString = ''
-  if (agentMemory && Object.keys(agentMemory).length > 0) {
-    contextString = '\n\nContext about this user:\n'
-    Object.entries(agentMemory).forEach(([key, value]) => {
-      contextString += `- ${key.replace(/_/g, ' ')}: ${value}\n`
-    })
-  }
-  
-  // Prepare messages
-  const messages = [
-    { role: 'system', content: systemPrompt + contextString },
-    ...conversationHistory,
-    { role: 'user', content: userMessage }
-  ]
-  
-  // Call OpenAI
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: {
-      'Authorization': `Bearer ${openaiKey}`,
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    },
+  });
+}
+
+// CORS preflight handler
+function corsResponse(): Response {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    },
+  });
+}
+
+// Log conversation to conversation_history
+async function logConversation(
+  payload: AgentRequestBody,
+  agentResponse: AgentResponse
+) {
+  try {
+    const { user_id, agent_id, message, metadata } = payload;
+
+    const { error } = await supabase
+      .from("conversation_history")
+      .insert({
+        user_id,
+        agent_id,
+        user_message: message,
+        agent_reply: agentResponse.reply,
+        agent_debug: agentResponse.debug ?? null,
+        metadata: metadata ?? null,
+      });
+
+    if (error) {
+      console.error("Error inserting into conversation_history:", error);
+    }
+  } catch (err) {
+    console.error("logConversation exception:", err);
+  }
+}
+
+// Update agent_memory
+async function updateAgentMemory(
+  payload: AgentRequestBody,
+  agentResponse: AgentResponse
+) {
+  try {
+    const { user_id, agent_id, context, metadata } = payload;
+
+    // Example strategy: upsert a single row per user+agent
+    // containing last_reply and merged memory_context
+    const memoryPayload = {
+      user_id,
+      agent_id,
+      last_message: payload.message,
+      last_reply: agentResponse.reply,
+      last_used_at: new Date().toISOString(),
+      memory_context: context ?? null,
+      metadata: metadata ?? null,
+    };
+
+    const { error } = await supabase
+      .from("agent_memory")
+      .upsert(memoryPayload, {
+        onConflict: "user_id,agent_id",
+      });
+
+    if (error) {
+      console.error("Error upserting into agent_memory:", error);
+    }
+  } catch (err) {
+    console.error("updateAgentMemory exception:", err);
+  }
+}
+
+// ---------- Agent call (Base44 / external AI) ----------
+
+async function callExternalAgent(
+  payload: AgentRequestBody
+): Promise<AgentResponse> {
+  // You can wire this to:
+  // - Base44 custom function/agent endpoint
+  // - OpenAI Responses API
+  // - Your own Next.js API route
+  //
+  // For now, we assume a Base44-style JSON HTTP endpoint.
+  if (!BASE44_AGENT_API_URL || !BASE44_API_KEY) {
+    // fallback stub so you can test the function without external wiring
+    return {
+      reply:
+        "Stubbed agent response. External agent API not configured yet (BASE44_AGENT_API_URL / BASE44_API_KEY).",
+      agent_id: payload.agent_id,
+      debug: { stub: true },
+    };
+  }
+
+  const res = await fetch(BASE44_AGENT_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      api_key: BASE44_API_KEY,
     },
     body: JSON.stringify({
-      model: 'gpt-4-turbo-preview',
-      messages,
-      temperature: 0.7,
-      max_tokens: 800
-    })
-  })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`OpenAI API error: ${error}`)
+      agent_id: payload.agent_id,
+      user_id: payload.user_id,
+      message: payload.message,
+      context: payload.context ?? {},
+      metadata: payload.metadata ?? {},
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("External agent API error:", res.status, text);
+    throw new Error(
+      `External agent call failed: ${res.status} ${text || res.statusText}`,
+    );
   }
-  
-  const data = await response.json()
-  return data.choices[0].message.content
+
+  const data = await res.json();
+
+  // Normalize whatever Base44 returns into AgentResponse shape.
+  return {
+    reply: data.reply ?? data.answer ?? JSON.stringify(data),
+    agent_id: payload.agent_id,
+    debug: data.debug ?? null,
+  };
 }
 
-/**
- * Extract memory updates from conversation
- */
-function extractMemoryUpdates(userMessage: string, agentResponse: string, agentName: string): Record<string, any> {
-  const updates: Record<string, any> = {}
-  const message = userMessage.toLowerCase()
-  const response = agentResponse.toLowerCase()
-  
-  // Agent-specific memory extraction patterns
-  switch(agentName) {
-    case 'breakup_coach':
-      if (message.includes('months ago') || message.includes('weeks ago')) {
-        const timeMatch = userMessage.match(/(\d+) (weeks?|months?) ago/i)
-        if (timeMatch) updates.relationship_stage = timeMatch[0]
-      }
-      if (message.includes('toxic') || message.includes('narcissist')) {
-        updates.core_wound_theme = 'toxic relationship patterns'
-      }
-      break
-      
-    case 'habits_coach':
-      if (message.includes('streak') || response.includes('streak')) {
-        const streakMatch = (userMessage + ' ' + agentResponse).match(/(\d+)\s*days?\s*streak/i)
-        if (streakMatch) updates.habit_streak = parseInt(streakMatch[1])
-      }
-      break
-      
-    case 'journal_coach':
-      if (message.includes('pattern') || message.includes('keeps happening')) {
-        updates.recurring_themes = 'identified recurring pattern'
-      }
-      if (message.includes('grateful') || message.includes('thankful')) {
-        updates.gratitude_pattern = new Date().toISOString()
-      }
-      break
-      
-    case 'prayer_coach':
-      if (message.includes('pray for') || message.includes('prayer request')) {
-        updates.prayer_focus = userMessage.substring(0, 100)
-      }
-      break
-    
-    default:
-      // Generic patterns
-      if (message.includes('struggle with') || message.includes('hard time')) {
-        updates.current_challenge = userMessage.substring(0, 100)
-      }
-  }
-  
-  // Add last interaction timestamp
-  updates.last_interaction = new Date().toISOString()
-  
-  return updates
-}
+// ---------- HTTP handler ----------
 
-/**
- * Main handler for the edge function
- */
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return corsResponse();
   }
-  
+
+  // Health check
+  if (req.method === "GET") {
+    return jsonResponse({ status: "ok", function: "agent-router" }, 200);
+  }
+
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  let body: AgentRequestBody;
   try {
-    // Parse request body
-    const { userId, agentName, message, conversationId } = await req.json()
-    
-    // Validate required fields
-    if (!userId || !agentName || !message) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: userId, agentName, message' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    // Validate agent exists
-    const agent = AGENT_PROMPTS[agentName]
-    if (!agent) {
-      return new Response(
-        JSON.stringify({ error: `Unknown agent: ${agentName}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    // Initialize Supabase client
-    const supabase = createServiceSupabase()
-    
-    // Get agent memory
-    const agentMemory = await getAgentMemory(supabase, userId, agentName)
-    
-    // Get conversation history
-    const conversationHistory = await getConversationHistory(supabase, userId, agentName)
-    
-    // Get AI response
-    const agentResponse = await callOpenAI(
-      agent.systemPrompt,
-      message,
-      conversationHistory,
-      agentMemory
-    )
-    
-    // Extract and update memory
-    const memoryUpdates = extractMemoryUpdates(message, agentResponse, agentName)
-    if (Object.keys(memoryUpdates).length > 0) {
-      await updateAgentMemory(supabase, userId, agentName, memoryUpdates)
-    }
-    
-    // Log conversation
-    await logConversation(supabase, userId, agentName, message, agentResponse)
-    
-    // Return response
-    return new Response(
-      JSON.stringify({
-        response: agentResponse,
-        agentName: agent.name,
-        entities: agent.entities,
-        memoryUpdated: Object.keys(memoryUpdates).length > 0
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-    
-  } catch (error) {
-    console.error('Error in agent router:', error)
-    
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        details: error.message
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    const raw = await req.json();
+    body = raw as AgentRequestBody;
+  } catch (err) {
+    console.error("Invalid JSON:", err);
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
-})
+
+  if (!body.user_id || !body.agent_id || !body.message) {
+    return jsonResponse(
+      { error: "Missing required fields: user_id, agent_id, message" },
+      400,
+    );
+  }
+
+  try {
+    // 1) Route to external agent
+    const agentResponse = await callExternalAgent(body);
+
+    // 2) Fire-and-forget: log to Supabase (don't block response on success)
+    // If you want strict behavior, await Promise.all instead.
+    logConversation(body, agentResponse);
+    updateAgentMemory(body, agentResponse);
+
+    // 3) Return to caller (mobile app, Base44, etc.)
+    return jsonResponse(
+      {
+        ok: true,
+        agent_id: agentResponse.agent_id,
+        reply: agentResponse.reply,
+      },
+      200,
+    );
+  } catch (err) {
+    console.error("Agent router error:", err);
+    return jsonResponse(
+      { ok: false, error: "Agent router failed", details: String(err) },
+      500,
+    );
+  }
+});
