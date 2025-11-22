@@ -59,7 +59,8 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
     },
   });
 }
@@ -71,7 +72,8 @@ function corsResponse(): Response {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
     },
   });
 }
@@ -79,21 +81,19 @@ function corsResponse(): Response {
 // Log conversation to conversation_history
 async function logConversation(
   payload: AgentRequestBody,
-  agentResponse: AgentResponse
+  agentResponse: AgentResponse,
 ) {
   try {
     const { user_id, agent_id, message, metadata } = payload;
 
-    const { error } = await supabase
-      .from("conversation_history")
-      .insert({
-        user_id,
-        agent_id,
-        user_message: message,
-        agent_reply: agentResponse.reply,
-        agent_debug: agentResponse.debug ?? null,
-        metadata: metadata ?? null,
-      });
+    const { error } = await supabase.from("conversation_history").insert({
+      user_id,
+      agent_id,
+      user_message: message,
+      agent_reply: agentResponse.reply,
+      agent_debug: agentResponse.debug ?? null,
+      metadata: metadata ?? null,
+    });
 
     if (error) {
       console.error("Error inserting into conversation_history:", error);
@@ -106,7 +106,7 @@ async function logConversation(
 // Update agent_memory
 async function updateAgentMemory(
   payload: AgentRequestBody,
-  agentResponse: AgentResponse
+  agentResponse: AgentResponse,
 ) {
   try {
     const { user_id, agent_id, context, metadata } = payload;
@@ -140,7 +140,7 @@ async function updateAgentMemory(
 // ---------- Agent call (Base44 / external AI) ----------
 
 async function callExternalAgent(
-  payload: AgentRequestBody
+  payload: AgentRequestBody,
 ): Promise<AgentResponse> {
   // You can wire this to:
   // - Base44 custom function/agent endpoint
