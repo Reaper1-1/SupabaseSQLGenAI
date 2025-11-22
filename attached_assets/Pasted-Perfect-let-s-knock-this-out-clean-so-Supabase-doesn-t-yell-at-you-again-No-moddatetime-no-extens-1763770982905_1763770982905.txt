@@ -1,0 +1,110 @@
+Perfect, let’s knock this out clean so Supabase doesn’t yell at you again. No moddatetime, no extensions required.
+
+⸻
+
+1️⃣ conversation_history table (no moddatetime)
+
+-- Conversation history for all agent chats
+create table if not exists public.conversation_history (
+  id uuid primary key default gen_random_uuid(),
+
+  -- if you're passing Supabase auth.user().id, keep this as uuid
+  user_id uuid not null references auth.users(id) on delete cascade,
+
+  agent_id text not null,               -- e.g. 'prayer_coach'
+  user_message text not null,
+  agent_reply text not null,
+
+  agent_debug jsonb,                    -- raw debug / traces from the agent (optional)
+  metadata jsonb,                       -- client info, platform, etc. (optional)
+
+  created_at timestamptz not null default now()
+);
+
+-- Helpful indexes
+create index if not exists conversation_history_user_created_idx
+  on public.conversation_history (user_id, created_at desc);
+
+create index if not exists conversation_history_agent_idx
+  on public.conversation_history (agent_id);
+
+🔁 If your user_id is not auth.users.id (e.g., you store an email), change:
+
+user_id uuid not null references auth.users(id) on delete cascade,
+
+to something like:
+
+user_id text not null,
+
+and drop the FK.
+
+⸻
+
+2️⃣ agent_memory table (for per-agent “state”)
+
+-- Per-user, per-agent rolling memory / last context
+create table if not exists public.agent_memory (
+  id uuid primary key default gen_random_uuid(),
+
+  user_id uuid not null references auth.users(id) on delete cascade,
+  agent_id text not null,                      -- same ids your router uses
+
+  last_message text,                           -- last user message
+  last_reply text,                             -- last agent reply
+  last_used_at timestamptz not null default now(),
+
+  memory_context jsonb,                        -- structured context for that agent
+  metadata jsonb,                              -- anything else
+
+  -- ensure one row per (user, agent) so upsert works cleanly
+  unique (user_id, agent_id)
+);
+
+create index if not exists agent_memory_user_agent_idx
+  on public.agent_memory (user_id, agent_id);
+
+create index if not exists agent_memory_last_used_idx
+  on public.agent_memory (last_used_at desc);
+
+Again, if you’re not using uuid for users, swap uuid → text and remove the FK.
+
+⸻
+
+3️⃣ Optional: standard Postgres trigger-based updated_at (no moddatetime)
+
+If you want an updated_at column that auto-updates but don’t want the Supabase moddatetime() extension, you can add this pure Postgres trigger:
+
+-- 1) Add updated_at columns
+alter table public.conversation_history
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.agent_memory
+  add column if not exists updated_at timestamptz not null default now();
+
+-- 2) Create reusable trigger function (once per DB)
+create or replace function public.set_updated_at_timestamp()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+-- 3) Attach trigger to both tables
+drop trigger if exists set_conversation_history_updated_at on public.conversation_history;
+create trigger set_conversation_history_updated_at
+before update on public.conversation_history
+for each row
+execute function public.set_updated_at_timestamp();
+
+drop trigger if exists set_agent_memory_updated_at on public.agent_memory;
+create trigger set_agent_memory_updated_at
+before update on public.agent_memory
+for each row
+execute function public.set_updated_at_timestamp();
+
+✅ This avoids moddatetime() entirely, so you won’t see that function moddatetime() does not exist 400 error again.
+
+⸻
+
+If you want, next step I can give you a single SQL file that includes these tables plus your journaling / progress tables, so you can paste it into Supabase SQL editor as one migration.

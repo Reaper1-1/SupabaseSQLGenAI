@@ -32,6 +32,10 @@ name = "EAS Update"
 mode = "sequential"
 
 [[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx eas update --auto"
 
@@ -73,9 +77,10 @@ waitForPort = 8081
 stack = "EXPO"
 
 [deployment]
-deploymentTarget = "static"
+deploymentTarget = "cloudrun"
 publicDir = "static-build"
 build = ["node", "scripts/build.js"]
+run = ["sh", "-c", "Run"]
 
 # Expo manifest headers
 [[deployment.responseHeaders]]

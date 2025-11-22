@@ -1,0 +1,275 @@
+Nice, you just dropped basically the whole Supabase Management API on the table 😂
+Let me turn this into something immediately usable for your Better Man / Base44 edge-function + agent-router setup.
+
+I’ll give you:
+	1.	A tiny “what you actually need” subset
+	2.	Node/TypeScript helpers you can paste into a supabaseManagement.ts
+	3.	A ready-made deploy script for your agent-router edge function
+
+You can wire this straight into Replit, CI, or a manual “run script to deploy”.
+
+⸻
+
+1. What you actually need (for now)
+
+For your use case (Better Man Project + Base44 agents), you mainly care about:
+
+Edge Functions
+	•	Deploy / update a function (preferred)
+POST /v1/projects/{ref}/functions/deploy
+	•	Query:
+	•	slug – function name (e.g. agent-router)
+	•	Body (multipart/form-data):
+	•	file – your eszip bundle
+	•	metadata – JSON metadata (slug, verify_jwt, entrypoint_path, etc.)
+	•	List functions
+GET /v1/projects/{ref}/functions
+	•	Retrieve function details
+GET /v1/projects/{ref}/functions/{function_slug}
+	•	Delete a function
+DELETE /v1/projects/{ref}/functions/{function_slug}
+
+All calls need:
+
+Authorization: Bearer <SUPABASE_MANAGEMENT_ACCESS_TOKEN>
+x-client-info: better-man-base44/edge-deployer
+Content-Type: ...
+
+Where SUPABASE_MANAGEMENT_ACCESS_TOKEN is the personal access token / org token you generated in Supabase.
+
+⸻
+
+2. TypeScript helper: Supabase Management client (minimal)
+
+Create something like: lib/supabaseManagement.ts
+
+// lib/supabaseManagement.ts
+const SUPABASE_MGMT_TOKEN = process.env.SUPABASE_MANAGEMENT_ACCESS_TOKEN;
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF; // "abcdefghijklmno"
+
+if (!SUPABASE_MGMT_TOKEN) {
+  throw new Error("SUPABASE_MANAGEMENT_ACCESS_TOKEN is not set");
+}
+if (!SUPABASE_PROJECT_REF) {
+  throw new Error("SUPABASE_PROJECT_REF is not set");
+}
+
+const SUPABASE_MGMT_BASE = "https://api.supabase.com";
+
+type EdgeFunction = {
+  id: string;
+  slug: string;
+  name: string;
+  status: "ACTIVE" | "INACTIVE" | string;
+  version: number;
+  created_at: number;
+  updated_at: number;
+  verify_jwt: boolean;
+  import_map: boolean;
+  entrypoint_path: string | null;
+  import_map_path: string | null;
+  ezbr_sha256: string | null;
+};
+
+async function supabaseMgmtFetch<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${SUPABASE_MGMT_BASE}${path}`;
+
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${SUPABASE_MGMT_TOKEN}`,
+      "x-client-info": "better-man/base44-edge-deployer",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Supabase Management API error (${res.status}): ${text || res.statusText}`
+    );
+  }
+
+  return (await res.json()) as T;
+}
+
+// --- List all edge functions for the project ---
+export async function listEdgeFunctions(): Promise<EdgeFunction[]> {
+  return supabaseMgmtFetch<EdgeFunction[]>(
+    `/v1/projects/${SUPABASE_PROJECT_REF}/functions`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+// --- Get a single function by slug ---
+export async function getEdgeFunction(
+  slug: string
+): Promise<EdgeFunction> {
+  return supabaseMgmtFetch<EdgeFunction>(
+    `/v1/projects/${SUPABASE_PROJECT_REF}/functions/${encodeURIComponent(slug)}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+
+⸻
+
+3. Deploy script for agent-router edge function
+
+Assuming you already have a bundled agent-router eszip at
+./dist/agent-router.eszip (or a path Deno/Supabase CLI gave you), here’s a Node/TS deploy script.
+
+Create scripts/deployAgentRouter.ts:
+
+// scripts/deployAgentRouter.ts
+import fs from "node:fs";
+import path from "node:path";
+
+const SUPABASE_MGMT_TOKEN = process.env.SUPABASE_MANAGEMENT_ACCESS_TOKEN;
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF; // e.g., "abcdefghijklmno"
+const EDGE_BUNDLE_PATH =
+  process.env.EDGE_BUNDLE_PATH || "./dist/agent-router.eszip";
+const FUNCTION_SLUG = process.env.EDGE_FUNCTION_SLUG || "agent-router";
+
+if (!SUPABASE_MGMT_TOKEN) {
+  throw new Error("SUPABASE_MANAGEMENT_ACCESS_TOKEN is not set");
+}
+if (!SUPABASE_PROJECT_REF) {
+  throw new Error("SUPABASE_PROJECT_REF is not set");
+}
+
+async function deploy() {
+  const bundlePath = path.resolve(EDGE_BUNDLE_PATH);
+
+  if (!fs.existsSync(bundlePath)) {
+    throw new Error(`Edge bundle not found at: ${bundlePath}`);
+  }
+
+  const fileBuffer = fs.readFileSync(bundlePath);
+  const formData = new FormData();
+
+  // Name doesn't matter much; Supabase expects 'file' for the eszip
+  const file = new File([fileBuffer], path.basename(bundlePath), {
+    type: "application/vnd.denoland.eszip",
+  });
+  formData.append("file", file);
+
+  // metadata object per Supabase docs
+  const metadata = {
+    slug: FUNCTION_SLUG,
+    name: "Agent Router",
+    verify_jwt: true,
+    import_map: false,
+    entrypoint_path: "index.ts",   // adjust if your entry file is different
+    import_map_path: null,
+  };
+
+  formData.append("metadata", JSON.stringify(metadata));
+
+  const res = await fetch(
+    `https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/functions/deploy?slug=${encodeURIComponent(
+      FUNCTION_SLUG
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_MGMT_TOKEN}`,
+        "x-client-info": "better-man/base44-edge-deployer",
+      },
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Deploy failed:", res.status, text);
+    process.exit(1);
+  }
+
+  const json = await res.json();
+  console.log("Deployed edge function:", json);
+}
+
+deploy().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+How to run:
+
+# envs
+export SUPABASE_MANAGEMENT_ACCESS_TOKEN="sbp_xxx..."
+export SUPABASE_PROJECT_REF="yourprojref"
+export EDGE_BUNDLE_PATH="./dist/agent-router.eszip"
+export EDGE_FUNCTION_SLUG="agent-router"
+
+# then
+npx ts-node scripts/deployAgentRouter.ts
+# or compile to JS and run with node
+
+
+⸻
+
+4. Optional: bulk secrets for Base44 / agent router
+
+To let your edge function talk to Base44 + OpenAI etc., you’ll want to set secrets via:
+
+POST /v1/projects/{ref}/secrets
+
+Here’s a quick helper:
+
+// scripts/setSecrets.ts
+const SUPABASE_MGMT_TOKEN = process.env.SUPABASE_MANAGEMENT_ACCESS_TOKEN;
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF;
+
+if (!SUPABASE_MGMT_TOKEN || !SUPABASE_PROJECT_REF) {
+  throw new Error("Missing SUPABASE_MANAGEMENT_ACCESS_TOKEN or SUPABASE_PROJECT_REF");
+}
+
+type SecretPayload = { name: string; value: string };
+
+async function setSecrets(secrets: SecretPayload[]) {
+  const res = await fetch(
+    `https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/secrets`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_MGMT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(secrets),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to set secrets: ${res.status} ${text}`);
+  }
+
+  console.log("Secrets set successfully");
+}
+
+setSecrets([
+  { name: "BASE44_API_KEY", value: process.env.BASE44_API_KEY || "" },
+  { name: "OPENAI_API_KEY", value: process.env.OPENAI_API_KEY || "" },
+  // add others you need in the edge function
+]).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+
+⸻
+
+If you tell me:
+	•	The exact slug you want for the edge router
+	•	The bundle path Deno/Supabase CLI is producing
+
+I can tweak the deploy script to match your exact build pipeline and even sketch the code skeleton for agent-router to log into conversation_history + agent_memory on each call.
