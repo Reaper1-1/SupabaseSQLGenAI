@@ -1,0 +1,322 @@
+Nice. Let’s actually plug this thing into your app so the mobile UI → edge function → Base44 → Supabase logs loop is real.
+
+I’ll assume:
+	•	Your front-end (web + Natively mobile wrapper) is React/Next.js with supabaseClient.ts already set up.
+	•	You want to be able to call:
+selected agent + user message → edge function → reply → show in chat + log in DB.
+
+⸻
+
+1️⃣ Frontend helper: agentRouterClient.ts
+
+Create a small client wrapper that your web+mobile app can call from anywhere.
+
+lib/agentRouterClient.ts
+
+// lib/agentRouterClient.ts
+import { supabase } from './supabaseClient';
+
+export type AgentId =
+  | 'devotional_guide'
+  | 'journal_coach'
+  | 'breakup_coach'
+  | 'habits_coach'
+  | 'breakthrough_coach'
+  | 'bible_study_agent'
+  | 'prayer_coach'
+  | 'leadership_mentor'
+  | 'emotional_intelligence_coach'
+  | 'workflow_meta_agent';
+
+export interface AgentRouterRequest {
+  agent_id: AgentId;
+  message: string;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentRouterResponse {
+  ok: boolean;
+  agent_id?: AgentId;
+  reply?: string;
+  error?: string;
+  details?: string;
+}
+
+/**
+ * Calls the Supabase Edge Function: agent-router
+ * - Automatically injects current user_id
+ * - Works in web + Natively-wrapped mobile
+ */
+export async function callAgentRouter(
+  payload: AgentRouterRequest
+): Promise<AgentRouterResponse> {
+  // get the current user
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      ok: false,
+      error: 'User not authenticated',
+      details: authError?.message ?? 'No user session'
+    };
+  }
+
+  const body = {
+    user_id: user.id,
+    agent_id: payload.agent_id,
+    message: payload.message,
+    context: payload.context ?? {},
+    metadata: payload.metadata ?? {}
+  };
+
+  const { data, error } = await supabase.functions.invoke('agent-router', {
+    body
+  });
+
+  if (error) {
+    console.error('agent-router error:', error);
+    return {
+      ok: false,
+      error: 'Edge function invocation failed',
+      details: error.message
+    };
+  }
+
+  return data as AgentRouterResponse;
+}
+
+This uses supabase.functions.invoke('agent-router', …) so it works inside the web app that Natively wraps for iOS/Android. No extra mobile-native code needed.
+
+⸻
+
+2️⃣ Plug into your AgentChat component
+
+Here’s a minimal chat UI that:
+	•	lets user pick an agent (from your AGENTS list),
+	•	sends the message to agent-router,
+	•	shows both sides in a simple thread.
+
+components/AgentChat.tsx
+
+import React, { useState } from 'react';
+import { callAgentRouter, AgentId } from '../lib/agentRouterClient';
+
+type MessageRole = 'user' | 'agent';
+
+interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  text: string;
+  agent_id?: AgentId;
+  created_at: string;
+}
+
+const AGENTS: { id: AgentId; label: string }[] = [
+  { id: 'devotional_guide', label: 'Devotional Guide' },
+  { id: 'journal_coach', label: 'Journal Coach' },
+  { id: 'breakup_coach', label: 'Breakup Coach' },
+  { id: 'habits_coach', label: 'Habits Coach' },
+  { id: 'breakthrough_coach', label: 'Breakthrough Coach' },
+  { id: 'bible_study_agent', label: 'Bible Study Agent' },
+  { id: 'prayer_coach', label: 'Prayer Coach' },
+  { id: 'leadership_mentor', label: 'Leadership Mentor' },
+  { id: 'emotional_intelligence_coach', label: 'EQ Coach' },
+  { id: 'workflow_meta_agent', label: 'Workflow Orchestrator' }
+];
+
+export const AgentChat: React.FC = () => {
+  const [selectedAgent, setSelectedAgent] = useState<AgentId>('devotional_guide');
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      text: input.trim(),
+      agent_id: selectedAgent,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setError(null);
+    setLoading(true);
+
+    const res = await callAgentRouter({
+      agent_id: selectedAgent,
+      message: userMessage.text,
+      // OPTIONAL: context/metadata hooks back to your app
+      context: {
+        last_messages: messages.slice(-5).map(m => ({
+          role: m.role,
+          text: m.text,
+          agent_id: m.agent_id
+        }))
+      }
+    });
+
+    setLoading(false);
+
+    if (!res.ok || !res.reply) {
+      console.error('Agent error:', res);
+      setError(res.error ?? 'Something went wrong talking to the agent.');
+      return;
+    }
+
+    const agentMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'agent',
+      text: res.reply,
+      agent_id: res.agent_id,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, agentMessage]);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Agent Switcher (top) */}
+      <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-200">
+        {AGENTS.map(agent => (
+          <button
+            key={agent.id}
+            onClick={() => setSelectedAgent(agent.id)}
+            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
+              selectedAgent === agent.id
+                ? 'bg-stone-900 text-amber-300'
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {agent.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto space-y-3 py-3">
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+              msg.role === 'user'
+                ? 'ml-auto bg-amber-500 text-white'
+                : 'mr-auto bg-gray-100 text-gray-900'
+            }`}
+          >
+            {msg.text}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-xs text-gray-400 italic">Agent is thinking…</div>
+        )}
+        {error && (
+          <div className="text-xs text-red-500">{error}</div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="flex items-center gap-2 border-t border-gray-200 pt-2">
+        <input
+          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-sm"
+          placeholder="Type your question or struggle…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
+          className="px-4 py-2 rounded-lg bg-stone-900 text-amber-300 text-sm disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+};
+
+Drop this into your Dashboard, Devotional screen, or a dedicated “AI Coach” page.
+Since Natively is just wrapping your site, this immediately works on iOS + Android too.
+
+⸻
+
+3️⃣ Where it fits in your mobile navigation
+
+Using your MobileHandoff spec + bottom tabs:
+	•	Dashboard tab
+	•	Show: “Talk to an AI Coach” card → opens /coach route with <AgentChat />.
+	•	Devotionals tab
+	•	Add “Reflect with AI” button → opens /coach?agent=devotional_guide.
+	•	Journal tab
+	•	On “Save entry”, optionally fire a background context call to agents later.
+
+Routing example in Next.js:
+
+// app/coach/page.tsx  (or pages/coach.tsx)
+import { AgentChat } from '@/components/AgentChat';
+
+export default function CoachPage() {
+  return (
+    <div className="h-[100vh] flex flex-col">
+      <div className="px-4 py-3 border-b border-gray-200">
+        <h1 className="text-lg font-semibold text-gray-900">
+          The Better Man Coach
+        </h1>
+        <p className="text-xs text-gray-500">
+          Choose an agent above and talk through what you’re facing.
+        </p>
+      </div>
+      <div className="flex-1 px-4">
+        <AgentChat />
+      </div>
+    </div>
+  );
+}
+
+Natively just needs that route reachable via https://thebettermanproject.org/coach.
+
+⸻
+
+4️⃣ Quick check: edge function deploy + CORS
+
+You already have good CORS headers in the function:
+
+"Access-Control-Allow-Origin": "*",
+"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+
+Make sure the function is deployed as agent-router (slug):
+
+supabase functions deploy agent-router
+
+And that it’s enabled in your Supabase dashboard (Edge Functions).
+
+⸻
+
+5️⃣ What this gives you immediately
+
+Once this is wired:
+	•	Mobile + web both call the same /functions/v1/agent-router.
+	•	Every chat turn is logged in conversation_history.
+	•	Latest per-agent state is stored in agent_memory.
+	•	You can later:
+	•	show “Recent conversations” per agent,
+	•	feed memory back into context,
+	•	analyze which agents guys use most.
+
+⸻
+
+If you want, next step I can:
+	•	add journal-aware context (auto-send today’s JournalEntry into context), or
+	•	wire each specialist agent to its own dedicated screen (e.g., /prayer, /breakup, /habits).

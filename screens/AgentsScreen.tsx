@@ -8,6 +8,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import api from "@/lib/api";
+import { callAgentRouter } from "@/lib/agentRouterClient";
 
 interface ChatMessage {
   id: string;
@@ -88,13 +89,33 @@ export default function AgentsScreen() {
       setIsLoading(true);
 
       try {
-        const response = await api.sendChatMessage(selectedAgent, input);
-        const responseMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          message: response,
-          isUser: false,
-        };
-        setMessages((prev) => [...prev, responseMessage]);
+        // Call the edge function with conversation context
+        const response = await callAgentRouter({
+          agent_id: selectedAgent,
+          message: input,
+          context: {
+            // Send last 5 messages as context
+            recent_messages: messages.slice(-5).map(m => ({
+              role: m.isUser ? 'user' : 'assistant',
+              content: m.message
+            }))
+          },
+          metadata: {
+            source: 'mobile_app',
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        if (response.ok && response.reply) {
+          const responseMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            message: response.reply,
+            isUser: false,
+          };
+          setMessages((prev) => [...prev, responseMessage]);
+        } else {
+          throw new Error(response.error || 'No response from agent');
+        }
       } catch (error) {
         console.error('Chat error:', error);
         const errorMessage: ChatMessage = {
