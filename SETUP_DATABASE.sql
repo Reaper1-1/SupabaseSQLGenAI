@@ -1,5 +1,8 @@
--- Better Man Project: Conversation History and Agent Memory Tables
--- Production-ready schema with RLS policies and auth.users integration
+-- ============================================
+-- Better Man Project - Complete Database Setup
+-- ============================================
+-- Run this entire script in your Supabase SQL Editor
+-- This creates all tables with proper RLS policies
 
 -- ========================================
 -- 0. Extensions
@@ -60,7 +63,6 @@ create index if not exists idx_agent_memory_user_agent
 -- 3. Updated_at Trigger Function
 -- ========================================
 -- Standard Postgres trigger for auto-updating updated_at column
--- (Avoiding moddatetime extension to prevent errors)
 
 -- Create reusable trigger function (once per database)
 create or replace function public.set_updated_at_timestamp()
@@ -127,21 +129,18 @@ create policy "Users update own memory"
 -- ========================================
 -- 6. Grant permissions for edge functions
 -- ========================================
--- Edge functions use service role key, but granting permissions for completeness
-grant all on public.conversation_history to service_role;
-grant all on public.agent_memory to service_role;
-
--- Grant basic permissions to authenticated users
-grant select, insert on public.conversation_history to authenticated;
+-- Edge functions use service role, but we also grant to authenticated for client use
+grant select, insert, update on public.conversation_history to authenticated;
 grant select, insert, update on public.agent_memory to authenticated;
 
 -- ========================================
--- Migration Complete
+-- 7. Quick Verification
 -- ========================================
--- This migration creates:
--- 1. conversation_history table for logging all agent interactions
--- 2. agent_memory table for persistent per-agent user context
--- 3. Standard Postgres triggers for updated_at (no moddatetime extension)
--- 4. Proper indexes for performance
--- 5. Row Level Security policies
--- 6. Appropriate permissions
+-- After running this script, you should see:
+-- - 2 tables: conversation_history, agent_memory
+-- - RLS enabled on both tables
+-- - 5 policies total (2 for conversation_history, 3 for agent_memory)
+
+-- You can verify with:
+-- SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+-- SELECT * FROM pg_policies WHERE schemaname = 'public';
