@@ -2,6 +2,30 @@
 
 All notable changes to the Better Man Project will be documented in this file.
 
+## [1.1.0] - 2025-11-23
+
+### 🚀 Enhanced TypeScript Support & Improved Integration
+
+#### Features Added
+- **TypeScript Agent Router Client** (`lib/agentRouterClient.ts`)
+  - Full TypeScript types for all 11 agent IDs
+  - Strongly typed request/response interfaces
+  - Automatic user authentication via Supabase
+  - Smart fallback to demo user when not authenticated
+  - Enhanced mock responses for each agent's unique personality
+
+- **Improved Chat Experience**
+  - Type-safe agent selection with AgentId enum
+  - Better error handling with graceful fallbacks
+  - Contextual conversations with last 5 messages
+  - Metadata tracking for analytics (source, timestamp)
+
+#### Technical Improvements
+- Full TypeScript support across agent router integration
+- Proper type exports for use across the app
+- Backward compatibility with existing JavaScript implementation
+- Enhanced mock mode with richer, personality-driven responses
+
 ## [1.0.0] - 2025-11-23
 
 ### 🎉 Initial Release - Full AI Coaching Platform

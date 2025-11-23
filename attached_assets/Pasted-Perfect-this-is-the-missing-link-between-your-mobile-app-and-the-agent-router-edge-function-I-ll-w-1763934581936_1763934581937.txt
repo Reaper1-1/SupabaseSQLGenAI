@@ -1,0 +1,297 @@
+Perfect, this is the missing link between your mobile app and the agent-router edge function. I’ll wire it so every call automatically includes user_id, agent_id, message (and optional context / metadata), and the edge function does the logging to conversation_history + agent_memory.
+
+Below is ready-to-drop-in TypeScript for your React Native / Expo app.
+
+⸻
+
+1️⃣ Environment Variable for the Edge Function
+
+In your mobile env (for Expo), add something like:
+
+EXPO_PUBLIC_AGENT_ROUTER_URL="https://<YOUR_PROJECT_REF>.functions.supabase.co/agent-router"
+
+Replace <YOUR_PROJECT_REF> with your real Supabase project ref.
+
+If you already use another pattern, just adjust the constant below.
+
+⸻
+
+2️⃣ Agent Router Client Helper
+
+Create a file like: src/lib/agentRouter.ts (or wherever you keep API helpers).
+
+// src/lib/agentRouter.ts
+// Better Man Project — Agent Router client for mobile (Expo/React Native)
+
+import { supabase } from "./supabaseClient"; // adjust path if needed
+
+// Keep this in sync with your edge function's AgentId union
+export type AgentId =
+  | "devotional_guide"
+  | "journal_coach"
+  | "breakup_coach"
+  | "habits_coach"
+  | "breakthrough_coach"
+  | "bible_study_agent"
+  | "prayer_coach"
+  | "leadership_mentor"
+  | "emotional_intelligence_coach"
+  | "workflow_meta_agent";
+
+const AGENT_ROUTER_URL =
+  process.env.EXPO_PUBLIC_AGENT_ROUTER_URL ??
+  process.env.AGENT_ROUTER_URL ?? // fallback for non-Expo envs
+  "";
+
+// Shapes must match your edge function
+export interface AgentRouterRequest {
+  agentId: AgentId;
+  message: string;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentRouterResponse {
+  ok: boolean;
+  agent_id: AgentId;
+  reply: string;
+  error?: string;
+  details?: string;
+}
+
+/**
+ * Calls the Supabase edge function `agent-router`.
+ * Automatically:
+ *  - fetches current user via Supabase Auth
+ *  - attaches user_id, agent_id, message, context, metadata
+ *  - lets the edge function log conversation + memory
+ */
+export async function callAgentRouter(
+  payload: AgentRouterRequest,
+): Promise<AgentRouterResponse> {
+  if (!AGENT_ROUTER_URL) {
+    throw new Error(
+      "AGENT_ROUTER_URL not configured. Set EXPO_PUBLIC_AGENT_ROUTER_URL in your env.",
+    );
+  }
+
+  // Get authenticated user from Supabase
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) {
+    console.error("Supabase auth error:", authError);
+    throw new Error("Failed to get authenticated user");
+  }
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
+  const body = {
+    user_id: user.id,
+    agent_id: payload.agentId,
+    message: payload.message,
+    context: payload.context ?? {},
+    metadata: payload.metadata ?? {},
+  };
+
+  const res = await fetch(AGENT_ROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // If you later want RLS via JWT, you can attach supabase.auth.getSession().access_token here.
+    },
+    body: JSON.stringify(body),
+  });
+
+  let json: AgentRouterResponse;
+  try {
+    json = (await res.json()) as AgentRouterResponse;
+  } catch (e) {
+    console.error("Failed to parse agent-router response", e);
+    throw new Error("Invalid response from agent router");
+  }
+
+  if (!res.ok || !json.ok) {
+    console.error("Agent router error:", json);
+    throw new Error(json.error || "Agent router call failed");
+  }
+
+  return json;
+}
+
+That’s the key piece: you just pass agentId + message (+ optional context/metadata), and it automatically attaches user_id and hits your Supabase edge function, which already logs to conversation_history + agent_memory.
+
+⸻
+
+3️⃣ Example: Simple AgentChat Component
+
+This is a minimal chat component that uses callAgentRouter. You can adapt it to your existing UI.
+
+// src/components/AgentChat.tsx
+
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
+import { AgentId, callAgentRouter } from "../lib/agentRouter";
+
+interface AgentChatProps {
+  agentId: AgentId;
+  title?: string;
+}
+
+export const AgentChat: React.FC<AgentChatProps> = ({ agentId, title }) => {
+  const [input, setInput] = useState("");
+  const [reply, setReply] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await callAgentRouter({
+        agentId,
+        message: input.trim(),
+        // optionally attach context & metadata:
+        // context: { timestamp: new Date().toISOString() },
+        // metadata: { screen: "AgentChat", source: "mobile" },
+      });
+
+      setReply(res.reply);
+      setInput("");
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={{ padding: 16 }}>
+      {title && (
+        <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 8 }}>
+          {title}
+        </Text>
+      )}
+
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, color: "#666" }}>Talking to: {agentId}</Text>
+      </View>
+
+      {reply && (
+        <View
+          style={{
+            padding: 12,
+            backgroundColor: "#111827",
+            borderRadius: 8,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: "#E5E7EB" }}>{reply}</Text>
+        </View>
+      )}
+
+      {error && (
+        <Text style={{ color: "red", marginBottom: 8 }}>{error}</Text>
+      )}
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          borderColor: "#D1D5DB",
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 8,
+        }}
+      >
+        <TextInput
+          style={{ flex: 1, paddingVertical: 8 }}
+          placeholder="Type your message..."
+          value={input}
+          onChangeText={setInput}
+        />
+        <TouchableOpacity
+          onPress={handleSend}
+          disabled={loading || !input.trim()}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            opacity: loading || !input.trim() ? 0.5 : 1,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" />
+          ) : (
+            <Text style={{ color: "#2563EB", fontWeight: "600" }}>Send</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+This component:
+	•	Takes an agentId (like "prayer_coach").
+	•	Uses callAgentRouter to send the message.
+	•	Does not need to know about user_id – that comes from Supabase internally.
+	•	Your edge function logs everything to conversation_history + agent_memory.
+
+⸻
+
+4️⃣ Example: Tiny Agent Switcher Hook-Up
+
+If you already have your AGENTS array, you can plug it in like this:
+
+// src/constants/agents.ts
+
+import { AgentId } from "../lib/agentRouter";
+
+export const AGENTS: { id: AgentId; name: string; desc: string }[] = [
+  { id: "prayer_coach", name: "Prayer Coach", desc: "Intercession & Prayer Guide" },
+  { id: "leadership_mentor", name: "Leadership Mentor", desc: "Calling & Integrity" },
+  { id: "emotional_intelligence_coach", name: "emotional_intelligence_coach", desc: "Relational Wisdom" },
+  { id: "devotional_guide", name: "Devotional Guide", desc: "Scripture Context" },
+  { id: "journal_coach", name: "Journal Coach", desc: "Reflection & Processing" },
+  { id: "breakup_coach", name: "Breakup Coach", desc: "Toxic Relationship Recovery" },
+  { id: "habits_coach", name: "Habits Coach", desc: "Accountability & Discipline" },
+  { id: "breakthrough_coach", name: "Breakthrough Coach", desc: "Inner Freedom" },
+  { id: "bible_study_agent", name: "Bible Study Agent", desc: "Deep Analysis" },
+  { id: "workflow_meta_agent", name: "Workflow Orchestrator", desc: "Meta-Agent & Planning" },
+];
+
+// src/screens/AgentScreen.tsx
+
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { AGENTS } from "../constants/agents";
+import { AgentId } from "../lib/agentRouter";
+import { AgentChat } from "../components/AgentChat";
+
+export const AgentScreen: React.FC = () => {
+  const [activeAgentId, setActiveAgentId] = useState<AgentId>("prayer_coach");
+
+  const activeAgent = AGENTS.find((a) => a.id === activeAgentId)!;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ paddingVertical: 8, paddingHorizontal: 12 }}
+      >
+        {AGENTS.map((agent) => (
+          <TouchableOpacity
+            key={agent.id}
+            onPress={() => setActiveAgentId(agent.id)}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius

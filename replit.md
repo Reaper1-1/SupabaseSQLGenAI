@@ -122,10 +122,13 @@ Each agent maintains:
 - Email/password authentication
 - User management linked to auth.users table via UUID foreign key
 
-**AI Service**: OpenAI API or similar (integration code present in server/agents.js but API endpoint not specified)
-- Requires API key configuration via environment variables
-- Agent responses generated with conversation history and memory context
+**AI Service**: Base44 AI Integration (via Supabase Edge Functions)
+- Edge function URL configured via EXPO_PUBLIC_AGENT_ROUTER_URL
+- TypeScript client with full type safety (`lib/agentRouterClient.ts`)
+- Agent responses generated with conversation history (last 5 messages) and memory context
 - System prompts define agent personalities and coaching approaches
+- Automatic fallback to rich mock responses when not configured
+- Smart mode detection: Live mode with Supabase, Mock mode for development
 
 **Deployment**: Replit-optimized configuration
 - Environment variables: REPLIT_DEV_DOMAIN, REPLIT_INTERNAL_APP_DOMAIN

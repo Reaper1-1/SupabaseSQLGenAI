@@ -8,7 +8,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import api from "@/lib/api";
-import { callAgentRouter } from "@/lib/agentRouterClient";
+import { callAgentRouter, AgentId } from "@/lib/agentRouterClient";
 
 interface ChatMessage {
   id: string;
@@ -16,24 +16,24 @@ interface ChatMessage {
   isUser: boolean;
 }
 
-const AGENTS = [
-  { id: "devotional_guide", name: "Devotional Coach", icon: "book-open" as const },
-  { id: "journal_coach", name: "Journal Coach", icon: "edit-3" as const },
-  { id: "breakup_coach", name: "Breakup Coach", icon: "heart" as const },
-  { id: "habits_coach", name: "Habits Coach", icon: "check-circle" as const },
-  { id: "breakthrough_coach", name: "Breakthrough Coach", icon: "zap" as const },
-  { id: "bible_study_agent", name: "Bible Study", icon: "book" as const },
-  { id: "prayer_coach", name: "Prayer Coach", icon: "sun" as const },
-  { id: "leadership_mentor", name: "Leadership", icon: "users" as const },
-  { id: "emotional_intelligence_coach", name: "Emotional IQ", icon: "smile" as const },
-  { id: "workflow_meta_agent", name: "Workflow", icon: "layers" as const },
-  { id: "builder_handoff_agent", name: "Builder", icon: "code" as const },
+const AGENTS: Array<{ id: AgentId; name: string; icon: keyof typeof Feather.glyphMap }> = [
+  { id: "devotional_guide", name: "Devotional Coach", icon: "book-open" },
+  { id: "journal_coach", name: "Journal Coach", icon: "edit-3" },
+  { id: "breakup_coach", name: "Breakup Coach", icon: "heart" },
+  { id: "habits_coach", name: "Habits Coach", icon: "check-circle" },
+  { id: "breakthrough_coach", name: "Breakthrough Coach", icon: "zap" },
+  { id: "bible_study_agent", name: "Bible Study", icon: "book" },
+  { id: "prayer_coach", name: "Prayer Coach", icon: "sun" },
+  { id: "leadership_mentor", name: "Leadership", icon: "users" },
+  { id: "emotional_intelligence_coach", name: "Emotional IQ", icon: "smile" },
+  { id: "workflow_meta_agent", name: "Workflow", icon: "layers" },
+  { id: "builder_handoff_agent", name: "Builder", icon: "code" },
 ];
 
 export default function AgentsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [selectedAgent, setSelectedAgent] = useState("devotional_guide");
+  const [selectedAgent, setSelectedAgent] = useState<AgentId>("devotional_guide");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
