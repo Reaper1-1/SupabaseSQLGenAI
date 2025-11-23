@@ -1,0 +1,53 @@
+You can create CSS @font-face rules for IBM Plex Sans using unicode-range to efficiently load subsets of characters for different languages or symbols. This technique helps reduce bandwidth and optimizes font delivery, especially when serving multiple language scripts.[1][2][3]
+
+Below are example @font-face blocks with woff2 for Latin, Cyrillic, and Greek unicode ranges:
+
+```css
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/IBMPlexSans-Regular-Latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/IBMPlexSans-Regular-Cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/IBMPlexSans-Regular-Greek.woff2') format('woff2');
+  unicode-range: U+0370-03FF;
+}
+```
+
+You can get these subsetted woff2 files and recommended unicode ranges from webfont helpers or the Fontsource project. Adjust unicode ranges and file paths for your needs, repeating rules for other weights and styles as required. This setup ensures browsers only fetch the necessary glyphs for each user, boosting performance.[2][4][5][3][1]
+
+Sources
+[1] unicode-range - CSS - MDN Web Docs https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face/unicode-range
+[2] CSS Unicode Ranges | BibleTech - James Cuénod https://jcuenod.github.io/bibletech/2018/03/10/css-unicode-ranges/
+[3] fontsource-ibm-plex-sans-condensed CDN by jsDelivr https://www.jsdelivr.com/package/npm/fontsource-ibm-plex-sans-condensed
+[4] @fontsource/ibm-plex-sans - npm https://www.npmjs.com/package/@fontsource/ibm-plex-sans
+[5] IBM Plex Sans sans-serif - google webfonts helper https://gwfh.mranftl.com/fonts/ibm-plex-sans?subsets=latin
+[6] Google Fonts - IBM Plex Sans and left/right arrows rendering https://stackoverflow.com/questions/66801221/google-fonts-ibm-plex-sans-and-left-right-arrows-rendering
+[7] IBM Plex Sans - Google Fonts https://fonts.google.com/specimen/IBM+Plex+Sans
+[8] Underline fails to skip descenders in Safari when Greek split import ... https://github.com/IBM/plex/issues/299
+[9] AtoZ CSS Screencast: Unicode Range and @font-face - SitePoint https://www.sitepoint.com/atoz-css-screencast-unicode/
+[10] IBM Plex Sans Devanagari | CDN - Fontsource https://fontsource.org/fonts/ibm-plex-sans-devanagari/cdn
+[11] How to install IBM Plex Sans font with alternates glyphs - GitHub Gist https://gist.github.com/Brykou/c832516ea17bdb60e1372aca4c4b5924
+[12] IBM Plex Sans - The one for me : r/typography - Reddit https://www.reddit.com/r/typography/comments/1h3mi22/ibm_plex_sans_the_one_for_me/
+[13] CSS Unicode-Range - YouTube https://www.youtube.com/watch?v=FmbtezH6yqc
+[14] [PDF] Font installation example: IBM Plex - ConTeXt articles https://articles.contextgarden.net/journal/2018/83-94.pdf
+[15] The package of IBM's typeface, IBM Plex. - GitHub https://github.com/IBM/plex
+[16] @ibm/plex - npm https://www.npmjs.com/package/@ibm/plex
+[17] Fonts - Shopify Dev Docs https://shopify.dev/docs/storefronts/themes/architecture/settings/fonts
+[18] 06 Specs | IBM Plex https://www.ibm.com/plex/specs/
+[19] IBM Plex Sans Condensed sans-serif - google webfonts helper https://gwfh.mranftl.com/fonts/ibm-plex-sans-condensed?subsets=latin
+[20] Generic Font Face Determined by Unicode Range? : r/css - Reddit https://www.reddit.com/r/css/comments/1c8vyud/generic_font_face_determined_by_unicode_range/
