@@ -1,4 +1,4 @@
-// supabase/functions/agent-router/index.ts
+a// supabase/functions/agent-router/index.ts
 // Better Man Project — Agent Router Edge Function
 // - Receives: { user_id, agent_id, message, context? }
 // - Calls external AI agent (Base44 / OpenAI / etc.)
@@ -229,7 +229,7 @@ serve(async (req) => {
     const agentResponse = await callExternalAgent(body);
 
     // 2) Fire-and-forget: log to Supabase (don't block response on success)
-    // If you want strict behavior, await Promise.all instead.
+    // If you want strict behavior, await Promise.all instead.34.111.179.208
     logConversation(body, agentResponse);
     updateAgentMemory(body, agentResponse);
 
