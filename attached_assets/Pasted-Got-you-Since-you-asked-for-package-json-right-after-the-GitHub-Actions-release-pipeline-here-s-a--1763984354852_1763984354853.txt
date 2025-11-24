@@ -1,0 +1,90 @@
+Got you. Since you asked for package.json right after the GitHub Actions release pipeline, here’s a ready-to-drop-in package.json that matches the pipeline I gave you and the Better Man / Supabase / Expo setup you’ve been building.
+
+You can tweak names/versions, but this will give you:
+	•	Scripts used by CI (build:version, build:web, lint, test)
+	•	Expo/React Native + Supabase + TypeScript base
+	•	Room to plug in your agent-router + Supabase env
+
+⸻
+
+package.json
+
+{
+  "name": "better-man-project",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "dev": "expo start",
+    "start": "expo start --no-dev",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+
+    // === CI / Release scripts ===
+    "build:version": "node scripts/build-version.js",
+    "build:web": "expo export --platform web",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test": "jest --passWithNoTests",
+
+    // Optional: type checking
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "^51.0.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.0",
+    "react-native-web": "~0.19.10",
+
+    "@supabase/supabase-js": "^2.48.0",
+    "lucide-react": "^0.441.0",
+
+    // UI / styling (if you’re using Tailwind-style classes)
+    "nativewind": "^4.0.0",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-svg": "15.3.0",
+
+    // CSV / dashboard story (if you keep that feature)
+    "papaparse": "^5.4.1",
+    "recharts": "^2.12.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/react-native": "^0.74.0",
+    "typescript": "^5.5.0",
+    "eslint": "^9.0.0",
+    "eslint-config-universe": "^12.0.0",
+    "jest": "^29.7.0",
+    "@testing-library/react-native": "^12.5.0"
+  },
+  "jest": {
+    "preset": "react-native",
+    "setupFilesAfterEnv": [
+      "@testing-library/jest-native/extend-expect"
+    ]
+  }
+}
+
+
+⸻
+
+How this ties to the GitHub Actions pipeline
+
+In your workflow (the one I gave you earlier), these lines:
+
+- run: npm run build:version
+- run: npm run build:web
+
+map directly to:
+	•	build:version → runs scripts/build-version.js (the version + .env generator you pasted)
+	•	build:web → builds static web output via Expo export (good for Natively + Hostinger deploy)
+
+lint and test are wired so you can keep them in the workflow or comment them out if you’re not using them yet.
+
+⸻
+
+If you want, next step I can:
+	•	Paste a final combined GitHub Actions YAML + this package.json as a single “release bundle” so you can copy both straight into GitHub.
