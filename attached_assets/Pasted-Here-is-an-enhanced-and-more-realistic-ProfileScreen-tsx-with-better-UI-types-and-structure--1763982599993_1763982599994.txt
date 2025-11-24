@@ -1,0 +1,253 @@
+Here is an enhanced and more realistic `ProfileScreen.tsx` with better UI, types, and structure.
+
+```tsx
+// screens/ProfileScreen.tsx
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+// Centralize this in e.g. src/types/navigation.ts
+type RootStackParamList = {
+  Home: undefined;
+  Profile: { userId: string };
+  EditProfile: { userId: string };
+};
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
+
+const MOCK_USER = {
+  name: 'John Doe',
+  email: 'john.doe@example.com',
+  username: '@johndoe',
+  bio: 'Compressor operator, learning React Native.',
+  avatarUrl: 'https://placekitten.com/240/240',
+  stats: {
+    posts: 42,
+    followers: 128,
+    following: 76,
+  },
+};
+
+const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { userId } = route.params;
+
+  const handleEditPress = () => {
+    navigation.navigate('EditProfile', { userId });
+  };
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <TouchableOpacity onPress={handleEditPress} style={styles.editButton}>
+          <Text style={styles.editButtonText}>Edit</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Avatar + Name */}
+      <View style={styles.profileHeader}>
+        <Image
+          source={{ uri: MOCK_USER.avatarUrl }}
+          style={styles.avatar}
+          resizeMode="cover"
+        />
+        <Text style={styles.name}>{MOCK_USER.name}</Text>
+        <Text style={styles.username}>{MOCK_USER.username}</Text>
+        <Text style={styles.email}>{MOCK_USER.email}</Text>
+      </View>
+
+      {/* Stats */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{MOCK_USER.stats.posts}</Text>
+          <Text style={styles.statLabel}>Posts</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{MOCK_USER.stats.followers}</Text>
+          <Text style={styles.statLabel}>Followers</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{MOCK_USER.stats.following}</Text>
+          <Text style={styles.statLabel}>Following</Text>
+        </View>
+      </View>
+
+      {/* Bio / Info */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>About</Text>
+        <Text style={styles.cardBody}>{MOCK_USER.bio}</Text>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Account</Text>
+        <TouchableOpacity
+          style={styles.rowButton}
+          onPress={handleEditPress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.rowButtonText}>Edit profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.rowButton}
+          onPress={() => navigation.navigate('Home')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.rowButtonText}>Back to home</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+export default ProfileScreen;
+
+const CARD_RADIUS = 16;
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#0f172a', // slate-900 style
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#e5e7eb',
+  },
+  editButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#f97316', // orange-500
+  },
+  editButtonText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 999,
+    marginBottom: 12,
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f9fafb',
+  },
+  username: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  email: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#020617',
+    borderRadius: CARD_RADIUS,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f9fafb',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: '#020617',
+    borderRadius: CARD_RADIUS,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e5e7eb',
+    marginBottom: 8,
+  },
+  cardBody: {
+    fontSize: 14,
+    color: '#9ca3af',
+    lineHeight: 20,
+  },
+  rowButton: {
+    paddingVertical: 10,
+  },
+  rowButtonText: {
+    fontSize: 14,
+    color: '#f97316',
+    fontWeight: '500',
+  },
+});
+```
+
+## What’s improved
+
+- Adds a realistic profile layout (avatar, stats, bio, actions) following modern mobile UI patterns.[1][2][3]
+- Uses a scroll container, cards, spacing, and contrast-friendly dark theme colors for better UX.[3][4]
+- Keeps navigation strongly typed and exposes an `EditProfile` route hook point for future expansion.[5][6]
+
+If you share your current `ProfileScreen.tsx`, this can be tuned to your exact navigation setup, design system, and theming.
+
+Sources
+[1] Building a Profile Screen with Cascade: A Step-by-Step Guide https://designcode.io/react-native-ai-building-a-profile-screen-with-cascade/
+[2] 5 React Native Patterns That Give an Instant UI Boost https://javascript.plainenglish.io/5-react-native-patterns-that-instantly-level-up-your-ui-02e532b3651f
+[3] 9 Mobile App UI Design Best Practices for 2025 - NextNative https://nextnative.dev/blog/mobile-app-ui-design-best-practices
+[4] Performance Overview - React Native https://reactnative.dev/docs/performance
+[5] Type checking with TypeScript - React Navigation https://reactnavigation.org/docs/typescript/
+[6] React Native + TypeScript: The Ultimate Duo for Clean Code https://blog.mrinalmaheshwari.com/react-native-typescript-the-ultimate-duo-for-clean-code-704f22e740a9
+[7] How to Create the Simplest Profile Modification Screen? : r/react https://www.reddit.com/r/react/comments/1dx8c22/how_to_create_the_simplest_profile_modification/
+[8] React Native Profile Screen Design With Light and Dark Theme https://www.youtube.com/watch?v=o3eaTF2j_IA
+[9] React Native Bottom Sheet Tutorial with Profile Screen - YouTube https://www.youtube.com/watch?v=mjJzaiGkaQA
+[10] Profiling React Native Apps With iOS and Android Tools https://www.callstack.com/blog/profiling-react-native-apps-with-ios-and-android-tools
+[11] Using TypeScript - React Native https://reactnative.dev/docs/typescript
+[12] User Profile, Edit & Settings Page Design Tutorial (2025) - YouTube https://www.youtube.com/watch?v=Gg-9Lavimv4
+[13] React Native Best Practices - DEV Community https://dev.to/hellonehha/react-native-code-practices-6dl
+[14] This Typescript Pattern Will Allow You To Build Anything in React https://www.youtube.com/watch?v=KeabgbA-Paw
+[15] Settings and Profile Setup - React Native Templates - WithFrame https://withfra.me/bundles/settings-and-profile-setup
+[16] Profile React Native - Stack Overflow https://stackoverflow.com/questions/67316683/profile-react-native
+[17] Proper Typescript type for a reused screen in react-navigation v5 https://stackoverflow.com/questions/65422185/proper-typescript-type-for-a-reused-screen-in-react-navigation-v5
+[18] Designing a custom UI using React Native Paper - LogRocket Blog https://blog.logrocket.com/designing-custom-ui-using-react-native-paper/
+[19] Screen | React Navigation https://reactnavigation.org/docs/screen/
+[20] thoughtbot/react-native-typescript-styles-example - GitHub https://github.com/thoughtbot/react-native-typescript-styles-example
