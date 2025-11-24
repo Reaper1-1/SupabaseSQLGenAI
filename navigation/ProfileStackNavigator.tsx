@@ -3,12 +3,14 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import ProfileScreen from "@/screens/ProfileScreen";
 import CrashScreen from "@/screens/CrashScreen";
+import ReleaseInfoScreen from "@/screens/ReleaseInfoScreen";
 import { useTheme } from "@/hooks/useTheme";
 import { getCommonScreenOptions } from "@/navigation/screenOptions";
 
 export type ProfileStackParamList = {
   Profile: undefined;
   Crash: undefined;
+  ReleaseInfo: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -30,6 +32,13 @@ export default function ProfileStackNavigator() {
         component={CrashScreen}
         options={{
           title: "Crash Test",
+        }}
+      />
+      <Stack.Screen
+        name="ReleaseInfo"
+        component={ReleaseInfoScreen}
+        options={{
+          title: "Release Info",
         }}
       />
     </Stack.Navigator>

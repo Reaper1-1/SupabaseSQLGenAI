@@ -7,8 +7,8 @@ import { ChatBubble } from "@/components/ChatBubble";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import api from "@/lib/api";
-import { callAgentRouter, AgentId } from "@/lib/agentRouterClient";
+import { useAgentRouter } from "@/hooks/useAgentRouter";
+import { AgentId } from "@/lib/agentRouterClient";
 
 interface ChatMessage {
   id: string;
@@ -36,12 +36,22 @@ export default function AgentsScreen() {
   const [selectedAgent, setSelectedAgent] = useState<AgentId>("devotional_guide");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  
+  // Use the new agent router hook
+  const {
+    sendMessage,
+    getConversationHistory,
+    isLoading,
+    error,
+    userId,
+    isSupabaseConnected,
+    isBase44Enabled
+  } = useAgentRouter();
 
   // Load initial message when agent changes
   useEffect(() => {
     const loadHistory = async () => {
-      const history = await api.getConversationHistory(selectedAgent);
+      const history = await getConversationHistory(selectedAgent);
       if (history.length === 0) {
         // Add welcome message for new conversation
         const welcomeMessages = {
@@ -66,7 +76,7 @@ export default function AgentsScreen() {
       } else {
         // Convert history to chat messages
         const chatMessages = history.map((msg: any, index: number) => ({
-          id: msg.id || index.toString(),
+          id: index.toString(),
           message: msg.content,
           isUser: msg.role === 'user'
         }));
@@ -75,7 +85,7 @@ export default function AgentsScreen() {
     };
     
     loadHistory();
-  }, [selectedAgent]);
+  }, [selectedAgent, getConversationHistory]);
 
   const handleSend = async () => {
     if (input.trim() && !isLoading) {
@@ -86,46 +96,28 @@ export default function AgentsScreen() {
       };
       setMessages((prev) => [...prev, newMessage]);
       setInput("");
-      setIsLoading(true);
 
       try {
-        // Call the edge function with conversation context
-        const response = await callAgentRouter({
-          agent_id: selectedAgent,
-          message: input,
-          context: {
-            // Send last 5 messages as context
-            recent_messages: messages.slice(-5).map(m => ({
-              role: m.isUser ? 'user' : 'assistant',
-              content: m.message
-            }))
-          },
-          metadata: {
-            source: 'mobile_app',
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        if (response.ok && response.reply) {
-          const responseMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            message: response.reply,
-            isUser: false,
-          };
-          setMessages((prev) => [...prev, responseMessage]);
-        } else {
-          throw new Error(response.error || 'No response from agent');
-        }
-      } catch (error) {
-        console.error('Chat error:', error);
-        const errorMessage: ChatMessage = {
+        // Use the new agent router hook with automatic user_id injection
+        const reply = await sendMessage(selectedAgent, input);
+        
+        const responseMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          message: "I'm having trouble connecting right now, but I'm still here. Try sharing again in a moment.",
+          message: reply,
           isUser: false,
         };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
+        setMessages((prev) => [...prev, responseMessage]);
+      } catch (error) {
+        console.error('Chat error:', error);
+        // The hook already handles fallback responses, but we can add a visual indicator
+        if (error) {
+          const errorMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            message: "I'm having trouble connecting right now, but I'm still here. Try sharing again in a moment.",
+            isUser: false,
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        }
       }
     }
   };

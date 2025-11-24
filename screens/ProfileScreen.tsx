@@ -138,6 +138,19 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           <ThemedText style={styles.settingLabel}>Privacy Policy</ThemedText>
           <Feather name="chevron-right" size={20} color={theme.textSecondary} />
         </Pressable>
+
+        <Spacer height={Spacing.md} />
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingRow,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}
+          onPress={() => navigation.navigate("ReleaseInfo" as never)}
+        >
+          <Feather name="info" size={20} color={theme.primary} />
+          <ThemedText style={styles.settingLabel}>Release Info</ThemedText>
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        </Pressable>
       </View>
 
       <Spacer height={Spacing.xl} />
