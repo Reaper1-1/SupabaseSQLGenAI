@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, ScrollView, Pressable, Linking } from 'react-na
 import { ScreenScrollView } from '@/components/ScreenScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Spacing } from '@/constants/spacing';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -15,12 +15,12 @@ const BUILD_NUMBER = '42';
 const AGENT_ROUTER_VERSION = 'v1.0.0-base44';
 
 export default function ReleaseInfoScreen() {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
 
   const InfoRow = ({ label, value, icon }: { label: string; value: string; icon?: keyof typeof Feather.glyphMap }) => (
     <View style={styles.infoRow}>
       <View style={styles.labelContainer}>
-        {icon && <Feather name={icon} size={18} color={colors.secondary} />}
+        {icon && <Feather name={icon} size={18} color={theme.secondary} />}
         <ThemedText style={styles.label}>{label}</ThemedText>
       </View>
       <ThemedText style={styles.value}>{value}</ThemedText>
@@ -29,12 +29,12 @@ export default function ReleaseInfoScreen() {
 
   const LinkButton = ({ label, url, icon }: { label: string; url: string; icon: keyof typeof Feather.glyphMap }) => (
     <Pressable 
-      style={[styles.linkButton, { backgroundColor: colors.elevation1 }]}
+      style={[styles.linkButton, { backgroundColor: theme.backgroundDefault }]}
       onPress={() => Linking.openURL(url)}
     >
-      <Feather name={icon} size={20} color={colors.secondary} />
-      <ThemedText style={[styles.linkText, { color: colors.secondary }]}>{label}</ThemedText>
-      <Feather name="external-link" size={16} color={colors.textSecondary} />
+      <Feather name={icon} size={20} color={theme.secondary} />
+      <ThemedText style={[styles.linkText, { color: theme.secondary }]}>{label}</ThemedText>
+      <Feather name="external-link" size={16} color={theme.textSecondary} />
     </Pressable>
   );
 
@@ -42,9 +42,9 @@ export default function ReleaseInfoScreen() {
     <ScreenScrollView>
       <View style={styles.container}>
         {/* Version Card */}
-        <View style={[styles.card, { backgroundColor: colors.elevation1 }]}>
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.cardHeader}>
-            <Feather name="package" size={24} color={colors.secondary} />
+            <Feather name="package" size={24} color={theme.secondary} />
             <ThemedText style={styles.cardTitle}>Version Information</ThemedText>
           </View>
           
@@ -55,9 +55,9 @@ export default function ReleaseInfoScreen() {
         </View>
 
         {/* Environment Card */}
-        <View style={[styles.card, { backgroundColor: colors.elevation1 }]}>
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.cardHeader}>
-            <Feather name="settings" size={24} color={colors.secondary} />
+            <Feather name="settings" size={24} color={theme.secondary} />
             <ThemedText style={styles.cardTitle}>Environment</ThemedText>
           </View>
           
@@ -84,9 +84,9 @@ export default function ReleaseInfoScreen() {
         </View>
 
         {/* Features Card */}
-        <View style={[styles.card, { backgroundColor: colors.elevation1 }]}>
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.cardHeader}>
-            <Feather name="star" size={24} color={colors.secondary} />
+            <Feather name="star" size={24} color={theme.secondary} />
             <ThemedText style={styles.cardTitle}>Active Features</ThemedText>
           </View>
           
@@ -101,9 +101,9 @@ export default function ReleaseInfoScreen() {
         </View>
 
         {/* Links Card */}
-        <View style={[styles.card, { backgroundColor: colors.elevation1 }]}>
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.cardHeader}>
-            <Feather name="link" size={24} color={colors.secondary} />
+            <Feather name="link" size={24} color={theme.secondary} />
             <ThemedText style={styles.cardTitle}>Resources</ThemedText>
           </View>
           
@@ -125,9 +125,9 @@ export default function ReleaseInfoScreen() {
         </View>
 
         {/* About Card */}
-        <View style={[styles.card, { backgroundColor: colors.elevation1 }]}>
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.cardHeader}>
-            <Feather name="info" size={24} color={colors.secondary} />
+            <Feather name="info" size={24} color={theme.secondary} />
             <ThemedText style={styles.cardTitle}>About</ThemedText>
           </View>
           
@@ -145,20 +145,20 @@ export default function ReleaseInfoScreen() {
 }
 
 const FeatureBadge = ({ label, active }: { label: string; active: boolean }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
   return (
     <View style={[
       styles.featureBadge, 
-      { backgroundColor: active ? colors.secondary + '20' : colors.elevation2 }
+      { backgroundColor: active ? theme.secondary + '20' : theme.backgroundSecondary }
     ]}>
       <Feather 
         name={active ? "check-circle" : "circle"} 
         size={14} 
-        color={active ? colors.secondary : colors.textSecondary} 
+        color={active ? theme.secondary : theme.textSecondary} 
       />
       <ThemedText style={[
         styles.featureText,
-        { color: active ? colors.secondary : colors.textSecondary }
+        { color: active ? theme.secondary : theme.textSecondary }
       ]}>
         {label}
       </ThemedText>

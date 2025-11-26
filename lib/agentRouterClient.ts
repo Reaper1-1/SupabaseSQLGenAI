@@ -17,6 +17,21 @@ export type AgentId =
   | "workflow_meta_agent"
   | "builder_handoff_agent";
 
+// Agent ID constants for easy reference
+export const AGENT_IDS = {
+  DEVOTIONAL_GUIDE: "devotional_guide" as AgentId,
+  JOURNAL_COACH: "journal_coach" as AgentId,
+  BREAKUP_COACH: "breakup_coach" as AgentId,
+  HABITS_COACH: "habits_coach" as AgentId,
+  BREAKTHROUGH_COACH: "breakthrough_coach" as AgentId,
+  BIBLE_STUDY_AGENT: "bible_study_agent" as AgentId,
+  PRAYER_COACH: "prayer_coach" as AgentId,
+  LEADERSHIP_MENTOR: "leadership_mentor" as AgentId,
+  EMOTIONAL_INTELLIGENCE_COACH: "emotional_intelligence_coach" as AgentId,
+  WORKFLOW_META_AGENT: "workflow_meta_agent" as AgentId,
+  BUILDER_HANDOFF_AGENT: "builder_handoff_agent" as AgentId,
+} as const;
+
 // Edge function URL - set this in your environment
 const AGENT_ROUTER_URL =
   process.env.EXPO_PUBLIC_AGENT_ROUTER_URL ??
